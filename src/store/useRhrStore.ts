@@ -25,7 +25,51 @@ export interface RhrUser {
   phone: string;
   badgeLabel: string;
   isActive?: boolean;
+  mustChangeCredentials?: boolean;
 }
+
+export interface CatalogEmojiOption {
+  emoji: string;
+  label: string;
+  group: "BOISSONS_BAR" | "PLATS_CUISINE" | "PRODUITS_PHARES";
+}
+
+export const RHR_CATALOG_EMOJIS: CatalogEmojiOption[] = [
+  // Boissons & Bar
+  { emoji: "🍺", label: "🍺 Bière Chope (Bock, Guinness...)", group: "BOISSONS_BAR" },
+  { emoji: "🍻", label: "🍻 Bières Pression / Pack (Beaufort...)", group: "BOISSONS_BAR" },
+  { emoji: "🍾", label: "🍾 Bouteille Prestige (Heineken, Champagne...)", group: "BOISSONS_BAR" },
+  { emoji: "🍷", label: "🍷 Vin Rouge / Spiritueux (Bordeaux...)", group: "BOISSONS_BAR" },
+  { emoji: "🥂", label: "🥂 Vin Blanc / Apéritif / Liqueur", group: "BOISSONS_BAR" },
+  { emoji: "🥃", label: "🥃 Whisky / Cognac / Liqueur Forte", group: "BOISSONS_BAR" },
+  { emoji: "🍋", label: "🍋 Bière Aromatisée / Citron (Chill...)", group: "BOISSONS_BAR" },
+  { emoji: "🥤", label: "🥤 Sucrerie / Soda (Coca, Fanta, Youki...)", group: "BOISSONS_BAR" },
+  { emoji: "🧃", label: "🧃 Jus Naturel (Bissap, Gingembre, Ananas...)", group: "BOISSONS_BAR" },
+  { emoji: "💧", label: "💧 Eau Minérale (Céleste, Awa...)", group: "BOISSONS_BAR" },
+  { emoji: "☕", label: "☕ Boisson Chaude (Café, Thé...)", group: "BOISSONS_BAR" },
+
+  // Plats du Menu & Nourriture
+  { emoji: "🍗", label: "🍗 Poulet Braisé / Rôti Entier", group: "PLATS_CUISINE" },
+  { emoji: "🍖", label: "🍖 Demi-Poulet Grillé / Côtes", group: "PLATS_CUISINE" },
+  { emoji: "🍲", label: "🍲 Kedjenou à l'Étouffée / Sauce", group: "PLATS_CUISINE" },
+  { emoji: "🥘", label: "🥘 Soupe du Pêcheur / Soupe Poulet", group: "PLATS_CUISINE" },
+  { emoji: "🐟", label: "🐟 Carpe Braisée / Poisson Grillé", group: "PLATS_CUISINE" },
+  { emoji: "🐠", label: "🐠 Machoiron de Lagune Braisé", group: "PLATS_CUISINE" },
+  { emoji: "🍛", label: "🍛 Plat + Attiéké / Riz / Alloco", group: "PLATS_CUISINE" },
+  { emoji: "🥣", label: "🥣 Soupe Royale + Foutou / Placali", group: "PLATS_CUISINE" },
+  { emoji: "🥩", label: "🥩 Choukouya de Bœuf / Mouton Braisé", group: "PLATS_CUISINE" },
+  { emoji: "🍢", label: "🍢 Brochettes / Suya Grillé", group: "PLATS_CUISINE" },
+  { emoji: "🍤", label: "🍤 Crevettes / Gambas / Escargots", group: "PLATS_CUISINE" },
+  { emoji: "🍟", label: "🍟 Assiette Alloco / Frites / Igname", group: "PLATS_CUISINE" },
+  { emoji: "🥗", label: "🥗 Salade Fraîcheur / Entrée", group: "PLATS_CUISINE" },
+  { emoji: "🍽️", label: "🍽️ Spécialité du Chef RHR", group: "PLATS_CUISINE" },
+
+  // Produits Phares Congélateur / Réserve
+  { emoji: "🐓", label: "🐓 Poulets Entiers (Congélateur)", group: "PRODUITS_PHARES" },
+  { emoji: "🦀", label: "🦀 Fruits de Mer / Crabes (Réserve)", group: "PRODUITS_PHARES" },
+  { emoji: "🧊", label: "🧊 Produit Surgelé / Stock Froid", group: "PRODUITS_PHARES" },
+  { emoji: "📦", label: "📦 Lot / Carton Réserve Cuisine", group: "PRODUITS_PHARES" },
+];
 
 export type RoomCategory = "CONFORT" | "STANDARD";
 
@@ -135,21 +179,21 @@ export interface PosOrder {
   items: PosOrderItem[];
   totalAmount: number;
   paymentMode:
-    | "ESPECES"
-    | "WAVE"
-    | "ORANGE_MONEY"
-    | "MTN_MOMO"
-    | "TRANSFERT_CHAMBRE"
-    | "EN_ATTENTE_QR";
+  | "ESPECES"
+  | "WAVE"
+  | "ORANGE_MONEY"
+  | "MTN_MOMO"
+  | "TRANSFERT_CHAMBRE"
+  | "EN_ATTENTE_QR";
   transferredToRoomNumber?: number;
   transferredToStayId?: string;
   status:
-    | "NOUVELLE_QR"
-    | "EN_PREPARATION"
-    | "SERVIE"
-    | "PAYEE"
-    | "TRANSFEREE_CHAMBRE"
-    | "ANNULEE";
+  | "NOUVELLE_QR"
+  | "EN_PREPARATION"
+  | "SERVIE"
+  | "PAYEE"
+  | "TRANSFEREE_CHAMBRE"
+  | "ANNULEE";
   createdBy: string;
   createdAt: string;
 }
@@ -177,12 +221,12 @@ export interface CeremonyBooking {
   clientName: string;
   clientPhone: string;
   eventType:
-    | "MARIAGE"
-    | "DOT"
-    | "BAPTEME"
-    | "ANNIVERSAIRE"
-    | "CONFERENCE"
-    | "AUTRE";
+  | "MARIAGE"
+  | "DOT"
+  | "BAPTEME"
+  | "ANNIVERSAIRE"
+  | "CONFERENCE"
+  | "AUTRE";
   eventDate: string;
   guestsCount: number;
   baseRentalFee: number; // Toujours 50 000 F (inclut 50 couverts)
@@ -204,12 +248,12 @@ export interface Transaction {
   reference: string;
   type: "ENCAISSEMENT" | "DEPENSE";
   pole:
-    | "HOTEL"
-    | "BAR_RESTO"
-    | "CEREMONIE"
-    | "MARCHE_CUISINE"
-    | "MAINTENANCE"
-    | "CHARGES_FIXES";
+  | "HOTEL"
+  | "BAR_RESTO"
+  | "CEREMONIE"
+  | "MARCHE_CUISINE"
+  | "MAINTENANCE"
+  | "CHARGES_FIXES";
   vault: "CAISSE_ESPECES" | "CAISSE_MOBILE_MONEY";
   paymentMethod: PaymentMethod;
   expenseFundSource?: "CAISSE_DU_JOUR" | "FONDS_SEPARE";
@@ -244,13 +288,13 @@ export interface CashClosure {
 export interface FixedCost {
   id: string;
   category:
-    | "CIE_ELECTRICITE"
-    | "SODECI_EAU"
-    | "SALAIRE"
-    | "AVANCE_SALAIRE"
-    | "IMPOTS_TAXES"
-    | "CANAL_INTERNET"
-    | "AUTRE_CHARGE";
+  | "CIE_ELECTRICITE"
+  | "SODECI_EAU"
+  | "SALAIRE"
+  | "AVANCE_SALAIRE"
+  | "IMPOTS_TAXES"
+  | "CANAL_INTERNET"
+  | "AUTRE_CHARGE";
   label: string;
   beneficiary?: string;
   periodMonth: string;
@@ -417,13 +461,14 @@ export const INITIAL_USERS: RhrUser[] = [
   {
     id: "usr-admin-01",
     email: "admin@rhr-mbatto.ci",
-    fullName: "M. Koffi — Propriétaire RHR",
+    fullName: "M. Koffi — Administrateur RHR",
     role: "PROPRIETAIRE",
     pinCode: "1111",
     password: "rhr2026",
     phone: "+225 07 07 01 02 03",
-    badgeLabel: "Propriétaire • Administrateur Général",
+    badgeLabel: "Administrateur",
     isActive: true,
+    mustChangeCredentials: false,
   },
   {
     id: "usr-compta-02",
@@ -1189,7 +1234,7 @@ export const INITIAL_CEREMONIES: CeremonyBooking[] = [
         amount: 150000,
         method: "WAVE",
         paidAt: yesterday,
-        receivedBy: "M. Koffi — Propriétaire RHR",
+        receivedBy: "M. Koffi — Administrateur RHR",
         note: "1er acompte de réservation salle & traiteur",
       },
     ],
@@ -1283,7 +1328,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     description: "1er Acompte Mariage Famille N'Guessan & Koné",
     relatedEntityId: "cer-01",
     createdBy: "usr-admin-01",
-    createdByName: "M. Koffi — Propriétaire RHR",
+    createdByName: "M. Koffi — Administrateur RHR",
     createdAt: yesterday,
   },
 ];
@@ -1457,8 +1502,12 @@ interface RhrStoreState {
   logout: () => void;
   lockSession: () => void;
   unlockSessionWithPin: (pinCode: string) => boolean;
+  changeOwnCredentials: (input: {
+    newPinCode: string;
+    newPassword: string;
+  }) => { success: boolean; error?: string };
 
-  // Actions Administration Générale (Propriétaire uniquement)
+  // Actions Administration Générale (Administrateur uniquement)
   createUserAccount: (input: {
     fullName: string;
     email: string;
@@ -1467,6 +1516,7 @@ interface RhrStoreState {
     password: string;
     phone: string;
     badgeLabel?: string;
+    mustChangeCredentials?: boolean;
   }) => { success: boolean; error?: string; user?: RhrUser };
 
   updateUserAccount: (
@@ -1482,6 +1532,7 @@ interface RhrStoreState {
         | "phone"
         | "badgeLabel"
         | "isActive"
+        | "mustChangeCredentials"
       >
     >
   ) => { success: boolean; error?: string };
@@ -1547,6 +1598,7 @@ interface RhrStoreState {
   flushSyncQueue: () => Promise<number>;
   simulateOfflineActionDemo: () => void;
   resetDemoData: () => void;
+  clearAllDemoCounters: () => void;
 
   // Actions Pôle Hôtel (Sprint 2)
   createCheckInOrReservation: (input: {
@@ -1605,11 +1657,11 @@ interface RhrStoreState {
     tableOrRoomLabel: string;
     items: PosOrderItem[];
     paymentMode:
-      | "ESPECES"
-      | "WAVE"
-      | "ORANGE_MONEY"
-      | "MTN_MOMO"
-      | "TRANSFERT_CHAMBRE";
+    | "ESPECES"
+    | "WAVE"
+    | "ORANGE_MONEY"
+    | "MTN_MOMO"
+    | "TRANSFERT_CHAMBRE";
     transferredToRoomNumber?: number;
   }) => {
     success: boolean;
@@ -1632,11 +1684,11 @@ interface RhrStoreState {
     orderId: string;
     waitressId: string;
     paymentMode:
-      | "ESPECES"
-      | "WAVE"
-      | "ORANGE_MONEY"
-      | "MTN_MOMO"
-      | "TRANSFERT_CHAMBRE";
+    | "ESPECES"
+    | "WAVE"
+    | "ORANGE_MONEY"
+    | "MTN_MOMO"
+    | "TRANSFERT_CHAMBRE";
     transferredToRoomNumber?: number;
   }) => {
     success: boolean;
@@ -1812,8 +1864,65 @@ export const useRhrStore = create<RhrStoreState>()(
         return false;
       },
 
+      changeOwnCredentials: ({ newPinCode, newPassword }) => {
+        const state = get();
+        const current = state.currentUser;
+        if (!current) {
+          return {
+            success: false,
+            error: "Aucun utilisateur connecté.",
+          };
+        }
+        const cleanPin = newPinCode.trim();
+        const cleanPassword = newPassword.trim();
+        if (!/^\d{4}$/.test(cleanPin)) {
+          return {
+            success: false,
+            error: "Le nouveau code PIN doit comporter exactement 4 chiffres.",
+          };
+        }
+        if (
+          state.users.some(
+            (u) => u.id !== current.id && u.pinCode === cleanPin
+          )
+        ) {
+          return {
+            success: false,
+            error:
+              "Ce code PIN est déjà attribué à un autre utilisateur. Choisissez un code PIN personnel unique.",
+          };
+        }
+        if (cleanPassword.length < 4) {
+          return {
+            success: false,
+            error:
+              "Le nouveau mot de passe doit contenir au moins 4 caractères.",
+          };
+        }
+
+        const updatedUser: RhrUser = {
+          ...current,
+          pinCode: cleanPin,
+          password: cleanPassword,
+          mustChangeCredentials: false,
+        };
+
+        set((prev) => ({
+          users: prev.users.map((u) => (u.id === current.id ? updatedUser : u)),
+          currentUser: updatedUser,
+        }));
+
+        get().enqueueSyncOperation("users", "UPDATE", {
+          id: current.id,
+          pinCode: cleanPin,
+          mustChangeCredentials: false,
+        });
+
+        return { success: true };
+      },
+
       // =======================================================================
-      // ACTIONS ADMINISTRATION GÉNÉRALE (PROPRIÉTAIRE UNIQUEMENT)
+      // ACTIONS ADMINISTRATION GÉNÉRALE (ADMINISTRATEUR UNIQUEMENT)
       // =======================================================================
 
       createUserAccount: (input) => {
@@ -1846,7 +1955,7 @@ export const useRhrStore = create<RhrStoreState>()(
         }
 
         const defaultBadges: Record<UserRole, string> = {
-          PROPRIETAIRE: "Propriétaire • Administrateur Général",
+          PROPRIETAIRE: "Administrateur",
           COMPTABLE: "Expert Comptable & Audit",
           GERANT_HOTEL: "Gérant Réception Hôtel",
           CAISSIERE_BAR_RESTO: "Caissière Bar & Restaurant",
@@ -1863,6 +1972,10 @@ export const useRhrStore = create<RhrStoreState>()(
           phone: input.phone.trim() || "+225 00 00 00 00 00",
           badgeLabel: input.badgeLabel?.trim() || defaultBadges[input.role],
           isActive: true,
+          mustChangeCredentials:
+            input.mustChangeCredentials !== undefined
+              ? input.mustChangeCredentials
+              : true,
         };
 
         set((prev) => ({
@@ -2005,8 +2118,8 @@ export const useRhrStore = create<RhrStoreState>()(
             (input.pole === "BAR_BOISSON"
               ? "Bouteilles"
               : input.pole === "PLAT_MENU"
-              ? "Plat"
-              : "Unités"),
+                ? "Plat"
+                : "Unités"),
           linkedCoreIngredientId:
             input.pole === "PLAT_MENU" && input.linkedCoreIngredientId
               ? input.linkedCoreIngredientId
@@ -2022,8 +2135,8 @@ export const useRhrStore = create<RhrStoreState>()(
             (input.pole === "BAR_BOISSON"
               ? "🍾"
               : input.pole === "PLAT_MENU"
-              ? "🍽️"
-              : "📦"),
+                ? "🍽️"
+                : "📦"),
           updatedBy: user.id,
           updatedAt: nowIso,
         };
@@ -2271,7 +2384,11 @@ export const useRhrStore = create<RhrStoreState>()(
       },
 
       resetDemoData: () => {
+        const current = get().currentUser;
+        const freshAdmin =
+          INITIAL_USERS.find((u) => u.id === current?.id) || INITIAL_USERS[0];
         set({
+          currentUser: current ? freshAdmin : null,
           users: INITIAL_USERS,
           waitresses: INITIAL_WAITRESSES,
           rooms: INITIAL_ROOMS,
@@ -2286,6 +2403,32 @@ export const useRhrStore = create<RhrStoreState>()(
           syncQueue: [],
           lastSyncedAt: new Date().toISOString(),
         });
+      },
+
+      clearAllDemoCounters: () => {
+        const nowIso = new Date().toISOString();
+        set((prev) => ({
+          waitresses: prev.waitresses.map((w) => ({
+            ...w,
+            totalSalesAmount: 0,
+            ordersCount: 0,
+          })),
+          rooms: prev.rooms.map((r) => ({
+            ...r,
+            status: "LIBRE",
+            currentStayId: undefined,
+            updatedAt: nowIso,
+          })),
+          stays: [],
+          folioItems: [],
+          posOrders: [],
+          ceremonies: [],
+          transactions: [],
+          cashClosures: [],
+          fixedCosts: [],
+          syncQueue: [],
+          lastSyncedAt: nowIso,
+        }));
       },
 
       // =======================================================================
@@ -2322,8 +2465,8 @@ export const useRhrStore = create<RhrStoreState>()(
           input.stayType === "PASSAGE_3H"
             ? new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
             : new Date(
-                new Date(startIso).getTime() + nights * 24 * 60 * 60 * 1000
-              ).toISOString();
+              new Date(startIso).getTime() + nights * 24 * 60 * 60 * 1000
+            ).toISOString();
 
         const unitRate =
           input.stayType === "PASSAGE_3H" ? room.passagePrice : room.nightPrice;
@@ -2363,11 +2506,9 @@ export const useRhrStore = create<RhrStoreState>()(
             description:
               input.stayType === "PASSAGE_3H"
                 ? `Forfait Passage 3 Heures — Chambre ${room.roomNumber}`
-                : `${
-                    input.stayType === "RESERVATION" ? "Réservation" : "Séjour"
-                  } ${nights} Nuitée(s) — Chambre ${room.roomNumber} (${
-                    room.category
-                  })`,
+                : `${input.stayType === "RESERVATION" ? "Réservation" : "Séjour"
+                } ${nights} Nuitée(s) — Chambre ${room.roomNumber} (${room.category
+                })`,
             category: "HEBERGEMENT",
             amount: totalAccommodationCost,
             isPaid: deposit >= totalAccommodationCost,
@@ -2383,11 +2524,10 @@ export const useRhrStore = create<RhrStoreState>()(
             id: `folio-dep-${Date.now() + 1}`,
             stayId,
             roomNumber: room.roomNumber,
-            description: `${
-              input.stayType === "PASSAGE_3H"
+            description: `${input.stayType === "PASSAGE_3H"
                 ? "Règlement Passage 3H"
                 : "Acompte / Règlement Hébergement"
-            } (${input.depositMethod.replace(/_/g, " ")})`,
+              } (${input.depositMethod.replace(/_/g, " ")})`,
             category: "ACOMPTE",
             amount: -deposit,
             isPaid: true,
@@ -2408,13 +2548,12 @@ export const useRhrStore = create<RhrStoreState>()(
                 : "CAISSE_MOBILE_MONEY",
             paymentMethod: input.depositMethod,
             amount: deposit,
-            description: `${
-              input.stayType === "RESERVATION"
+            description: `${input.stayType === "RESERVATION"
                 ? "Acompte Réservation"
                 : input.stayType === "PASSAGE_3H"
-                ? "Encaissement Passage 3H"
-                : "Encaissement Check-In Nuitée"
-            } Chambre ${room.roomNumber} — ${input.guestName.trim()}`,
+                  ? "Encaissement Passage 3H"
+                  : "Encaissement Check-In Nuitée"
+              } Chambre ${room.roomNumber} — ${input.guestName.trim()}`,
             relatedEntityId: stayId,
             createdBy: user.id,
             createdByName: user.fullName,
@@ -2426,19 +2565,19 @@ export const useRhrStore = create<RhrStoreState>()(
           input.stayType === "PASSAGE_3H"
             ? "OCCUPEE_PASSAGE_3H"
             : input.stayType === "RESERVATION"
-            ? "RESERVEE"
-            : "OCCUPEE_NUITEE";
+              ? "RESERVEE"
+              : "OCCUPEE_NUITEE";
 
         set((prev) => ({
           rooms: prev.rooms.map((r) =>
             r.id === room.id
               ? {
-                  ...r,
-                  status: nextRoomStatus,
-                  currentStayId: stayId,
-                  updatedBy: user.id,
-                  updatedAt: nowIso,
-                }
+                ...r,
+                status: nextRoomStatus,
+                currentStayId: stayId,
+                updatedBy: user.id,
+                updatedAt: nowIso,
+              }
               : r
           ),
           stays: [newStay, ...prev.stays],
@@ -2475,9 +2614,8 @@ export const useRhrStore = create<RhrStoreState>()(
           id: `folio-acompte-${Date.now()}`,
           stayId: stay.id,
           roomNumber: stay.roomNumber,
-          description: `Complément d'acompte (${method.replace(/_/g, " ")})${
-            note ? ` — ${note}` : ""
-          }`,
+          description: `Complément d'acompte (${method.replace(/_/g, " ")})${note ? ` — ${note}` : ""
+            }`,
           category: "ACOMPTE",
           amount: -cleanAmount,
           isPaid: true,
@@ -2508,10 +2646,10 @@ export const useRhrStore = create<RhrStoreState>()(
           stays: prev.stays.map((s) =>
             s.id === stay.id
               ? {
-                  ...s,
-                  depositAmount: s.depositAmount + cleanAmount,
-                  depositMethod: method,
-                }
+                ...s,
+                depositAmount: s.depositAmount + cleanAmount,
+                depositMethod: method,
+              }
               : s
           ),
           folioItems: [...prev.folioItems, newFolioItem],
@@ -2538,22 +2676,22 @@ export const useRhrStore = create<RhrStoreState>()(
           stays: prev.stays.map((s) =>
             s.id === stayId
               ? {
-                  ...s,
-                  stayType: "NUITEE",
-                  status: "EN_COURS",
-                  checkIn: nowIso,
-                }
+                ...s,
+                stayType: "NUITEE",
+                status: "EN_COURS",
+                checkIn: nowIso,
+              }
               : s
           ),
           rooms: prev.rooms.map((r) =>
             r.roomNumber === stay.roomNumber
               ? {
-                  ...r,
-                  status: "OCCUPEE_NUITEE",
-                  currentStayId: stay.id,
-                  updatedBy: user.id,
-                  updatedAt: nowIso,
-                }
+                ...r,
+                status: "OCCUPEE_NUITEE",
+                currentStayId: stay.id,
+                updatedBy: user.id,
+                updatedAt: nowIso,
+              }
               : r
           ),
         }));
@@ -2594,21 +2732,21 @@ export const useRhrStore = create<RhrStoreState>()(
           rooms: prev.rooms.map((r) =>
             r.id === room.id
               ? {
-                  ...r,
-                  status: "OCCUPEE_NUITEE",
-                  updatedBy: user.id,
-                  updatedAt: nowIso,
-                }
+                ...r,
+                status: "OCCUPEE_NUITEE",
+                updatedBy: user.id,
+                updatedAt: nowIso,
+              }
               : r
           ),
           stays: prev.stays.map((s) =>
             s.id === stay.id
               ? {
-                  ...s,
-                  stayType: "NUITEE",
-                  baseRate: room.nightPrice,
-                  expectedCheckOut: tomorrowNoonIso,
-                }
+                ...s,
+                stayType: "NUITEE",
+                baseRate: room.nightPrice,
+                expectedCheckOut: tomorrowNoonIso,
+              }
               : s
           ),
           folioItems: [...prev.folioItems, upgradeLine],
@@ -2632,7 +2770,7 @@ export const useRhrStore = create<RhrStoreState>()(
         const addedCost = room.nightPrice * additionalNights;
         const nextExpectedOut = new Date(
           new Date(stay.expectedCheckOut).getTime() +
-            additionalNights * 24 * 60 * 60 * 1000
+          additionalNights * 24 * 60 * 60 * 1000
         ).toISOString();
 
         const extraLine: RoomFolioItem = {
@@ -2651,10 +2789,10 @@ export const useRhrStore = create<RhrStoreState>()(
           stays: prev.stays.map((s) =>
             s.id === stay.id
               ? {
-                  ...s,
-                  nightsCount: s.nightsCount + additionalNights,
-                  expectedCheckOut: nextExpectedOut,
-                }
+                ...s,
+                nightsCount: s.nightsCount + additionalNights,
+                expectedCheckOut: nextExpectedOut,
+              }
               : s
           ),
           folioItems: [...prev.folioItems, extraLine],
@@ -2802,12 +2940,12 @@ export const useRhrStore = create<RhrStoreState>()(
           rooms: prev.rooms.map((r) =>
             r.id === roomId
               ? {
-                  ...r,
-                  status: "LIBRE",
-                  currentStayId: undefined,
-                  updatedBy: user.id,
-                  updatedAt: nowIso,
-                }
+                ...r,
+                status: "LIBRE",
+                currentStayId: undefined,
+                updatedBy: user.id,
+                updatedAt: nowIso,
+              }
               : r
           ),
         }));
@@ -2909,11 +3047,9 @@ export const useRhrStore = create<RhrStoreState>()(
           if (!coreItem || coreItem.stockQuantity < neededQty) {
             return {
               success: false,
-              error: `Stock insuffisant pour ${
-                coreItem?.name || "Produit Phare"
-              } (Disponible : ${
-                coreItem?.stockQuantity || 0
-              }, Requis : ${neededQty}). Vente bloquée.`,
+              error: `Stock insuffisant pour ${coreItem?.name || "Produit Phare"
+                } (Disponible : ${coreItem?.stockQuantity || 0
+                }, Requis : ${neededQty}). Vente bloquée.`,
             };
           }
         }
@@ -2923,11 +3059,9 @@ export const useRhrStore = create<RhrStoreState>()(
           if (!barItem || barItem.stockQuantity < neededQty) {
             return {
               success: false,
-              error: `Rupture / Stock insuffisant pour ${
-                barItem?.name || "Boisson"
-              } (Disponible : ${
-                barItem?.stockQuantity || 0
-              }, Requis : ${neededQty}). Vente bloquée.`,
+              error: `Rupture / Stock insuffisant pour ${barItem?.name || "Boisson"
+                } (Disponible : ${barItem?.stockQuantity || 0
+                }, Requis : ${neededQty}). Vente bloquée.`,
             };
           }
         }
@@ -2968,9 +3102,8 @@ export const useRhrStore = create<RhrStoreState>()(
           source: "COMPTOIR_POS",
           tableOrRoomLabel:
             input.paymentMode === "TRANSFERT_CHAMBRE" && targetRoom
-              ? `Chambre ${targetRoom.roomNumber} (${
-                  targetStay?.guestName || "Client"
-                })`
+              ? `Chambre ${targetRoom.roomNumber} (${targetStay?.guestName || "Client"
+              })`
               : input.tableOrRoomLabel || "Comptoir / Terrasse",
           waitressId: waitress.id,
           waitressName: waitress.name,
@@ -3076,10 +3209,10 @@ export const useRhrStore = create<RhrStoreState>()(
           waitresses: prev.waitresses.map((w) =>
             w.id === waitress.id
               ? {
-                  ...w,
-                  totalSalesAmount: w.totalSalesAmount + totalAmount,
-                  ordersCount: w.ordersCount + 1,
-                }
+                ...w,
+                totalSalesAmount: w.totalSalesAmount + totalAmount,
+                ordersCount: w.ordersCount + 1,
+              }
               : w
           ),
           folioItems: [...prev.folioItems, ...newFolioItems],
@@ -3111,9 +3244,8 @@ export const useRhrStore = create<RhrStoreState>()(
           id: orderId,
           orderNumber,
           source: input.locationType === "CHAMBRE" ? "QR_CHAMBRE" : "QR_TABLE",
-          tableOrRoomLabel: `${input.locationLabel} — Client ${
-            input.guestFirstName.trim() || "RHR"
-          }`,
+          tableOrRoomLabel: `${input.locationLabel} — Client ${input.guestFirstName.trim() || "RHR"
+            }`,
           waitressId: state.waitresses[0]?.id || "wait-awa",
           waitressName: "À attribuer (QR)",
           items: input.items,
@@ -3179,9 +3311,8 @@ export const useRhrStore = create<RhrStoreState>()(
           if (!coreItem || coreItem.stockQuantity < neededQty) {
             return {
               success: false,
-              error: `Stock insuffisant pour ${coreItem?.name} (Dispo: ${
-                coreItem?.stockQuantity || 0
-              }).`,
+              error: `Stock insuffisant pour ${coreItem?.name} (Dispo: ${coreItem?.stockQuantity || 0
+                }).`,
             };
           }
         }
@@ -3191,9 +3322,8 @@ export const useRhrStore = create<RhrStoreState>()(
           if (!barItem || barItem.stockQuantity < neededQty) {
             return {
               success: false,
-              error: `Stock insuffisant pour ${barItem?.name} (Dispo: ${
-                barItem?.stockQuantity || 0
-              }).`,
+              error: `Stock insuffisant pour ${barItem?.name} (Dispo: ${barItem?.stockQuantity || 0
+                }).`,
             };
           }
         }
@@ -3323,10 +3453,10 @@ export const useRhrStore = create<RhrStoreState>()(
           waitresses: prev.waitresses.map((w) =>
             w.id === waitress.id
               ? {
-                  ...w,
-                  totalSalesAmount: w.totalSalesAmount + qrOrder.totalAmount,
-                  ordersCount: w.ordersCount + 1,
-                }
+                ...w,
+                totalSalesAmount: w.totalSalesAmount + qrOrder.totalAmount,
+                ordersCount: w.ordersCount + 1,
+              }
               : w
           ),
           folioItems: [...prev.folioItems, ...newFolioItems],
@@ -3369,11 +3499,11 @@ export const useRhrStore = create<RhrStoreState>()(
         const updatedInventory = state.inventory.map((item) =>
           item.id === itemId
             ? {
-                ...item,
-                stockQuantity: item.stockQuantity + qty,
-                updatedBy: user.id,
-                updatedAt: nowIso,
-              }
+              ...item,
+              stockQuantity: item.stockQuantity + qty,
+              updatedBy: user.id,
+              updatedAt: nowIso,
+            }
             : item
         );
 
@@ -3487,23 +3617,23 @@ export const useRhrStore = create<RhrStoreState>()(
         const deposits: CeremonyDeposit[] =
           initDeposit > 0
             ? [
-                {
-                  id: `dep-cer-${Date.now()}`,
-                  amount: initDeposit,
-                  method: input.initialDepositMethod,
-                  paidAt: nowIso,
-                  receivedBy: user.fullName,
-                  note: "1er Acompte à la création du Devis/Réservation",
-                },
-              ]
+              {
+                id: `dep-cer-${Date.now()}`,
+                amount: initDeposit,
+                method: input.initialDepositMethod,
+                paidAt: nowIso,
+                receivedBy: user.fullName,
+                note: "1er Acompte à la création du Devis/Réservation",
+              },
+            ]
             : [];
 
         const status: CeremonyBooking["status"] =
           initDeposit >= totalAmount
             ? "SOLDE"
             : initDeposit > 0
-            ? "CONFIRME_ACOMPTE"
-            : "DEVIS";
+              ? "CONFIRME_ACOMPTE"
+              : "DEVIS";
 
         const booking: CeremonyBooking = {
           id: cerId,
@@ -3675,10 +3805,10 @@ export const useRhrStore = create<RhrStoreState>()(
           cashClosures: prev.cashClosures.map((c) =>
             c.id === closureId
               ? {
-                  ...c,
-                  status: "VALIDE_PROPRIETAIRE",
-                  auditedBy: user.id,
-                }
+                ...c,
+                status: "VALIDE_PROPRIETAIRE",
+                auditedBy: user.id,
+              }
               : c
           ),
         }));
@@ -3721,9 +3851,8 @@ export const useRhrStore = create<RhrStoreState>()(
           paymentMethod: input.paymentMethod,
           expenseFundSource: "FONDS_SEPARE",
           amount: cleanAmount,
-          description: `[Charge Fixe ${input.category.replace(/_/g, " ")}] ${
-            fc.label
-          }`,
+          description: `[Charge Fixe ${input.category.replace(/_/g, " ")}] ${fc.label
+            }`,
           receiptPhotoUrl: input.receiptPhotoUrl,
           relatedEntityId: fc.id,
           createdBy: user.id,
@@ -3746,7 +3875,7 @@ export const useRhrStore = create<RhrStoreState>()(
       },
     }),
     {
-      name: "rhr-mbatto-erp-storage-v2.6",
+      name: "rhr-mbatto-erp-storage-v2.7",
       storage: createJSONStorage(() => hybridOfflineStorage),
       partialize: (state) => ({
         currentUser: state.currentUser,

@@ -21,6 +21,7 @@ import {
   useRhrStore,
   InventoryItem,
   PaymentMethod,
+  RHR_CATALOG_EMOJIS,
 } from "@/store/useRhrStore";
 import { formatCFA, cn } from "@/lib/utils";
 
@@ -154,10 +155,9 @@ export default function InventoryPage() {
     }
 
     setBannerMsg(
-      `Approvisionnement validé : +${numericAddedQty} ${restockModalItem.unit} ajouté(s) sur "${restockModalItem.name}"${
-        restockModalItem.pole !== "CUISINE_PHARE" && numericUnitPrice > 0
-          ? ` (Prix de vente : ${formatCFA(numericUnitPrice)})`
-          : ""
+      `Approvisionnement validé : +${numericAddedQty} ${restockModalItem.unit} ajouté(s) sur "${restockModalItem.name}"${restockModalItem.pole !== "CUISINE_PHARE" && numericUnitPrice > 0
+        ? ` (Prix de vente : ${formatCFA(numericUnitPrice)})`
+        : ""
       }.`
     );
     setRestockModalItem(null);
@@ -352,8 +352,8 @@ export default function InventoryPage() {
                   isZero
                     ? "border-red-400 bg-red-50/40"
                     : justSaved
-                    ? "border-emerald-500 bg-emerald-50/20 shadow-md"
-                    : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
+                      ? "border-emerald-500 bg-emerald-50/20 shadow-md"
+                      : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
                 )}
               >
                 <div className="space-y-3.5">
@@ -374,8 +374,8 @@ export default function InventoryPage() {
                           isZero
                             ? "bg-red-100 text-red-800"
                             : drink.stockQuantity <= drink.alertThreshold
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-emerald-100 text-emerald-800"
+                              ? "bg-amber-100 text-amber-900"
+                              : "bg-emerald-100 text-emerald-800"
                         )}
                       >
                         {drink.stockQuantity} btl
@@ -456,8 +456,8 @@ export default function InventoryPage() {
                           justSaved
                             ? "bg-emerald-600 text-white"
                             : isPriceDirty
-                            ? "bg-rhr-burgundy text-white shadow-sm ring-2 ring-rhr-burgundy/30"
-                            : "bg-rhr-dark hover:bg-rhr-burgundy text-white"
+                              ? "bg-rhr-burgundy text-white shadow-sm ring-2 ring-rhr-burgundy/30"
+                              : "bg-rhr-dark hover:bg-rhr-burgundy text-white"
                         )}
                       >
                         <Save className="h-3.5 w-3.5 shrink-0" />
@@ -562,8 +562,8 @@ export default function InventoryPage() {
                   isZero
                     ? "border-red-300 bg-red-50/30"
                     : justSaved
-                    ? "border-emerald-500 bg-emerald-50/20 shadow-md"
-                    : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
+                      ? "border-emerald-500 bg-emerald-50/20 shadow-md"
+                      : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
                 )}
               >
                 <div className="space-y-3.5">
@@ -666,8 +666,8 @@ export default function InventoryPage() {
                           justSaved
                             ? "bg-emerald-600 text-white"
                             : isPriceDirty
-                            ? "bg-rhr-burgundy text-white shadow-sm ring-2 ring-rhr-burgundy/30"
-                            : "bg-rhr-dark hover:bg-rhr-burgundy text-white"
+                              ? "bg-rhr-burgundy text-white shadow-sm ring-2 ring-rhr-burgundy/30"
+                              : "bg-rhr-dark hover:bg-rhr-burgundy text-white"
                         )}
                       >
                         <Save className="h-3.5 w-3.5 shrink-0" />
@@ -1039,19 +1039,46 @@ export default function InventoryPage() {
             </div>
 
             <form onSubmit={handleCreateNewItem} className="p-6 space-y-4">
-              <div className="grid grid-cols-4 gap-3">
-                <div className="col-span-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Icône
+                    Icône / Emoji (Liste)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newEmoji}
                     onChange={(e) => setNewEmoji(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-center text-xl"
-                  />
+                    className="w-full rounded-xl border border-gray-300 bg-white px-2.5 py-2.5 text-xs font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                  >
+                    <optgroup label="Boissons & Bar">
+                      {RHR_CATALOG_EMOJIS.filter(
+                        (em) => em.group === "BOISSONS_BAR"
+                      ).map((em) => (
+                        <option key={em.emoji} value={em.emoji}>
+                          {em.emoji} {em.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Plats & Cuisine">
+                      {RHR_CATALOG_EMOJIS.filter(
+                        (em) => em.group === "PLATS_CUISINE"
+                      ).map((em) => (
+                        <option key={em.emoji} value={em.emoji}>
+                          {em.emoji} {em.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Produits Phares">
+                      {RHR_CATALOG_EMOJIS.filter(
+                        (em) => em.group === "PRODUITS_PHARES"
+                      ).map((em) => (
+                        <option key={em.emoji} value={em.emoji}>
+                          {em.emoji} {em.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
                 </div>
-                <div className="col-span-3">
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     Désignation de l&apos;article *
                   </label>
@@ -1067,6 +1094,44 @@ export default function InventoryPage() {
                     }
                     className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-bold text-rhr-dark"
                   />
+                </div>
+              </div>
+
+              {/* Sélecteur visuel rapide d'icône/emoji */}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-gray-600">
+                  <span>Choix rapide dans la liste d&apos;icônes :</span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-gray-200 px-2 py-0.5 text-xs font-black text-rhr-dark">
+                    Sélectionné : <span className="text-base">{newEmoji}</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
+                  {RHR_CATALOG_EMOJIS.filter((em) =>
+                    createModalType === "BAR_BOISSON"
+                      ? em.group === "BOISSONS_BAR"
+                      : em.group !== "BOISSONS_BAR"
+                  ).map((em) => {
+                    const active = newEmoji === em.emoji;
+                    return (
+                      <button
+                        key={`${em.group}-${em.emoji}`}
+                        type="button"
+                        onClick={() => setNewEmoji(em.emoji)}
+                        title={em.label}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition",
+                          active
+                            ? "border-rhr-burgundy bg-rhr-burgundy text-white font-bold shadow-sm"
+                            : "border-gray-200 bg-white hover:bg-gray-100 text-gray-800"
+                        )}
+                      >
+                        <span className="text-base leading-none">
+                          {em.emoji}
+                        </span>
+                        <span className="text-[10px]">{em.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

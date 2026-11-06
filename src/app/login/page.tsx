@@ -42,7 +42,7 @@ const PROFILE_CARDS: ProfileCardOption[] = [
   {
     id: "card-admin",
     role: "PROPRIETAIRE",
-    title: "Propriétaire • Administrateur Général",
+    title: "Administrateur",
     subtitle: "Direction Générale, Comptes, Prix, Articles & Audit",
     securityBadge: "Accès Protégé",
     icon: ShieldCheck,

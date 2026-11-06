@@ -38,6 +38,7 @@ export default function DashboardPage() {
     isOnline,
     validateCashClosureByOwner,
     resetDemoData,
+    clearAllDemoCounters,
   } = useRhrStore();
 
   const [auditFilterType, setAuditFilterType] = useState<
@@ -45,6 +46,8 @@ export default function DashboardPage() {
   >("TOUS");
   const [auditFilterPole, setAuditFilterPole] = useState<string>("TOUS");
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetBanner, setResetBanner] = useState<string | null>(null);
 
   // =========================================================================
   // 1. VUE TRÉSORERIE SÉPARÉE EN TEMPS RÉEL (ESPÈCES VS MOBILE MONEY)
@@ -233,14 +236,14 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* =====================================================================
-          EN-TÊTE EXÉCUTIF PROPRIÉTAIRE & COMPTABLE
+          EN-TÊTE EXÉCUTIF ADMINISTRATEUR & COMPTABLE
       ===================================================================== */}
       <div className="rounded-2xl bg-rhr-dark text-white p-6 shadow-card border border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rhr-gold">
             <Sparkles className="h-3.5 w-3.5" />
             <span>
-              Dashboard Exécutif Propriétaire &amp; Comptable — Accès Exclusif
+              Dashboard Exécutif Administrateur &amp; Comptable — Accès Exclusif
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
@@ -259,7 +262,7 @@ export default function DashboardPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-rhr-gold hover:bg-rhr-gold-light px-4 py-2.5 text-xs font-black text-rhr-dark shadow transition"
             >
               <Users className="h-4 w-4" />
-              <span>Admin Général : Comptes, Prix &amp; Articles</span>
+              <span>Administrateur : Comptes, Prix &amp; Articles</span>
             </Link>
           )}
           <button
@@ -273,15 +276,31 @@ export default function DashboardPage() {
 
           <button
             type="button"
-            onClick={resetDemoData}
-            title="Réinitialiser le jeu de données démo RHR"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-3.5 py-2.5 text-xs font-bold text-gray-200 transition"
+            onClick={() => setResetModalOpen(true)}
+            title="Réinitialiser ou remettre à zéro les données démo RHR"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-rhr-burgundy border border-white/15 px-3.5 py-2.5 text-xs font-bold text-white transition"
           >
             <RotateCcw className="h-3.5 w-3.5 text-rhr-gold" />
             <span>Réinitialiser Démo</span>
           </button>
         </div>
       </div>
+
+      {resetBanner && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs sm:text-sm font-bold text-emerald-900 shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{resetBanner}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setResetBanner(null)}
+            className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* =====================================================================
           1. VUE TRÉSORERIE SÉPARÉE EN TEMPS RÉEL (2 COFFRES ÉTANCHES)
@@ -862,6 +881,92 @@ export default function DashboardPage() {
               alt="Justificatif Reçu"
               className="w-full max-h-[70vh] object-contain rounded-2xl border border-gray-200"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmation Réinitialiser Démo */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-lg w-full rounded-3xl bg-white border border-gray-200 p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Réinitialisation des Données Démo
+                </span>
+                <h3 className="text-lg font-black text-rhr-dark">
+                  Que souhaitez-vous réinitialiser ?
+                </h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Choisissez entre remettre tous les compteurs financiers à zéro
+                  (0 FCFA) pour démarrer une exploitation propre, ou restaurer
+                  les données d&apos;exemple initiales.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetModalOpen(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  clearAllDemoCounters();
+                  setResetModalOpen(false);
+                  setResetBanner(
+                    "Tous les compteurs de démonstration (Trésorerie, Ventes POS, Séjours, Clôtures) ont été remis à ZÉRO (0 FCFA) et les 5 chambres sont libres."
+                  );
+                }}
+                className="w-full rounded-2xl border-2 border-rhr-burgundy bg-rhr-burgundy/5 hover:bg-rhr-burgundy hover:text-white p-4 text-left transition group"
+              >
+                <div className="font-black text-sm text-rhr-burgundy group-hover:text-white flex items-center justify-between">
+                  <span>1. Remettre tous les compteurs à ZÉRO (0 FCFA)</span>
+                  <RotateCcw className="h-4 w-4" />
+                </div>
+                <p className="text-xs text-gray-600 group-hover:text-rose-100 mt-1">
+                  Vide les écritures de caisse, commandes POS, séjours et
+                  clôtures, libère les 5 chambres et conserve vos comptes
+                  utilisateurs ainsi que votre catalogue de prix.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetDemoData();
+                  setResetModalOpen(false);
+                  setResetBanner(
+                    "Le jeu de données de démonstration initial RHR M'Batto a été restauré avec succès."
+                  );
+                }}
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50 hover:bg-gray-100 p-4 text-left transition"
+              >
+                <div className="font-black text-sm text-rhr-dark flex items-center justify-between">
+                  <span>2. Restaurer les données d&apos;exemple initiales</span>
+                  <Database className="h-4 w-4 text-rhr-gold" />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Recharge les opérations d&apos;exemple de démonstration
+                  (séjours, ventes Bar/Resto, cérémonie et stocks par défaut).
+                </p>
+              </button>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setResetModalOpen(false)}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
       )}

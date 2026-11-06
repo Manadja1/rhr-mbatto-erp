@@ -58,7 +58,7 @@ const ROLE_BADGE_STYLES: Record<
   PROPRIETAIRE: {
     bg: "bg-rhr-gold/20 border-rhr-gold/50",
     text: "text-rhr-gold",
-    label: "PROPRIÉTAIRE • ADMIN GÉNÉRAL",
+    label: "ADMINISTRATEUR",
   },
   COMPTABLE: {
     bg: "bg-amber-500/20 border-amber-400/40",
@@ -99,6 +99,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     simulateOfflineActionDemo,
     lockSession,
     unlockSessionWithPin,
+    changeOwnCredentials,
+    updateUserAccount,
     loginWithPin,
     logout,
   } = useRhrStore();
@@ -113,6 +115,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [unlockPin, setUnlockPin] = useState("");
   const [unlockError, setUnlockError] = useState(false);
 
+  // Modal de modification du Code PIN & Mot de passe (Automatique à la 1ère connexion d'un nouvel utilisateur)
+  const [manualCredentialsModalOpen, setManualCredentialsModalOpen] =
+    useState(false);
+  const [newPersonalPin, setNewPersonalPin] = useState("");
+  const [newPersonalPassword, setNewPersonalPassword] = useState("");
+  const [confirmPersonalPassword, setConfirmPersonalPassword] = useState("");
+  const [credError, setCredError] = useState<string | null>(null);
+  const [credSuccessBanner, setCredSuccessBanner] = useState<string | null>(
+    null
+  );
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -123,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const handleOnline = () => setOnlineStatus(true);
     const handleOffline = () => setOnlineStatus(false);
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "rhr-mbatto-erp-storage-v2.6") {
+      if (e.key === "rhr-mbatto-erp-storage-v2.7") {
         const storeWithPersist = useRhrStore as unknown as {
           persist?: { rehydrate: () => void | Promise<void> };
         };
@@ -218,6 +231,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const handleCredentialsChangeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCredError(null);
+    if (newPersonalPassword !== confirmPersonalPassword) {
+      setCredError("Les deux mots de passe saisis ne correspondent pas.");
+      return;
+    }
+    const res = changeOwnCredentials({
+      newPinCode: newPersonalPin,
+      newPassword: newPersonalPassword,
+    });
+    if (!res.success) {
+      setCredError(res.error || "Impossible de mettre à jour vos identifiants.");
+      return;
+    }
+    setNewPersonalPin("");
+    setNewPersonalPassword("");
+    setConfirmPersonalPassword("");
+    setManualCredentialsModalOpen(false);
+    setCredSuccessBanner(
+      "Votre nouveau Code PIN et votre nouveau Mot de passe personnel ont été enregistrés avec succès !"
+    );
+    setTimeout(() => setCredSuccessBanner(null), 5000);
+  };
+
   return (
     <div className="h-screen w-full overflow-hidden flex bg-rhr-surface text-rhr-dark">
       {/* =====================================================================
@@ -248,7 +286,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Carte Utilisateur Connecté & Audit Trail */}
         {currentUser && (
-          <div className="px-4 py-3.5 bg-white/[0.04] border-b border-white/10">
+          <div className="px-4 py-3.5 bg-white/[0.04] border-b border-white/10 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span
                 className={cn(
@@ -260,15 +298,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <UserCheck className="h-3 w-3" />
                 {ROLE_BADGE_STYLES[currentUser.role].label}
               </span>
-              <span className="text-[11px] font-mono text-gray-400">
-                PIN ••••
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCredError(null);
+                  setNewPersonalPin("");
+                  setNewPersonalPassword("");
+                  setConfirmPersonalPassword("");
+                  setManualCredentialsModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-lg bg-white/10 hover:bg-white/20 px-2 py-0.5 text-[10px] font-bold text-rhr-gold transition whitespace-nowrap"
+              >
+                <KeyRound className="h-3 w-3" />
+                <span>Mon PIN / MDP</span>
+              </button>
             </div>
-            <div className="mt-2 font-bold text-sm text-white truncate">
-              {currentUser.fullName}
-            </div>
-            <div className="text-[11px] text-gray-400 truncate">
-              {currentUser.email}
+            <div>
+              <div className="font-bold text-sm text-white truncate">
+                {currentUser.fullName}
+              </div>
+              <div className="text-[11px] text-gray-400 truncate">
+                {currentUser.email}
+              </div>
             </div>
           </div>
         )}
@@ -498,6 +549,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* CONTENU DE LA PAGE OU BOUCLIER D'INTERDICTION RBAC STRICT */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 scroll-smooth">
+          {credSuccessBanner && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-900 shadow-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>{credSuccessBanner}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCredSuccessBanner(null)}
+                className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {!isAuthorized ? (
             <div className="max-w-xl mx-auto my-12 rounded-2xl border-2 border-red-200 bg-white p-8 text-center shadow-card space-y-5">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-rhr-burgundy border border-red-200">
@@ -653,7 +719,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {[
                     {
                       role: "PROPRIETAIRE" as UserRole,
-                      label: "Propriétaire • Admin Général",
+                      label: "Administrateur",
                       desc: "Direction, Comptes & Prix",
                     },
                     {
@@ -749,6 +815,141 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          MODAL 3 : PREMIÈRE CONNEXION / PERSONNALISATION CODE PIN & MOT DE PASSE
+      ===================================================================== */}
+      {currentUser &&
+        (currentUser.mustChangeCredentials || manualCredentialsModalOpen) && (
+          <div className="fixed inset-0 z-50 bg-rhr-dark/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-3xl bg-white border-2 border-rhr-gold/40 p-6 sm:p-7 shadow-2xl space-y-5">
+              <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    <KeyRound className="h-3.5 w-3.5 text-amber-700" />
+                    <span>
+                      {currentUser.mustChangeCredentials
+                        ? "Première Connexion — Sécurité Personnelle"
+                        : "Sécurité du Compte Utilisateur"}
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-rhr-dark">
+                    Personnaliser mon Code PIN et Mot de passe
+                  </h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Bienvenue <strong>{currentUser.fullName}</strong>. Pour
+                    garantir la confidentialité de votre session, définissez dès
+                    maintenant votre propre Code PIN à 4 chiffres et votre mot
+                    de passe personnel.
+                  </p>
+                </div>
+                {!currentUser.mustChangeCredentials && (
+                  <button
+                    type="button"
+                    onClick={() => setManualCredentialsModalOpen(false)}
+                    className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleCredentialsChangeSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                    Nouveau Code PIN personnel (4 chiffres) *
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={4}
+                    required
+                    value={newPersonalPin}
+                    onChange={(e) => {
+                      setCredError(null);
+                      setNewPersonalPin(e.target.value.replace(/\D/g, "").slice(0, 4));
+                    }}
+                    placeholder="Ex : 2580"
+                    className="w-full text-center tracking-[0.5em] text-xl font-black rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-rhr-burgundy focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Nouveau Mot de passe *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={newPersonalPassword}
+                      onChange={(e) => {
+                        setCredError(null);
+                        setNewPersonalPassword(e.target.value);
+                      }}
+                      placeholder="Min. 4 caractères"
+                      className="w-full rounded-xl border-2 border-gray-300 bg-white px-3.5 py-2.5 text-sm font-bold text-gray-900 focus:border-rhr-burgundy focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Confirmer le Mot de passe *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={confirmPersonalPassword}
+                      onChange={(e) => {
+                        setCredError(null);
+                        setConfirmPersonalPassword(e.target.value);
+                      }}
+                      placeholder="Répétez le mot de passe"
+                      className="w-full rounded-xl border-2 border-gray-300 bg-white px-3.5 py-2.5 text-sm font-bold text-gray-900 focus:border-rhr-burgundy focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {credError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-bold text-red-700">
+                    {credError}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                  {currentUser.mustChangeCredentials ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        changeOwnCredentials({
+                          newPinCode: currentUser.pinCode,
+                          newPassword: currentUser.password || "rhr2026",
+                        });
+                        setManualCredentialsModalOpen(false);
+                      }}
+                      className="rounded-xl border border-gray-300 bg-white hover:bg-gray-50 px-4 py-2.5 text-xs font-bold text-gray-600 transition"
+                    >
+                      Conserver mes accès actuels
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setManualCredentialsModalOpen(false)}
+                      className="rounded-xl border border-gray-300 bg-white hover:bg-gray-50 px-4 py-2.5 text-xs font-bold text-gray-600 transition"
+                    >
+                      Annuler
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-5 py-2.5 text-xs font-bold text-white shadow-rhr transition"
+                  >
+                    Enregistrer mon nouveau PIN & Mot de passe
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

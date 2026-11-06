@@ -31,11 +31,12 @@ import {
   RhrUser,
   InventoryItem,
   InventoryPole,
+  RHR_CATALOG_EMOJIS,
 } from "@/store/useRhrStore";
 import { formatCFA, cn } from "@/lib/utils";
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  PROPRIETAIRE: "Propriétaire • Administrateur Général",
+  PROPRIETAIRE: "Administrateur",
   COMPTABLE: "Expert Comptable & Audit",
   GERANT_HOTEL: "Gérant Réception Hôtel",
   CAISSIERE_BAR_RESTO: "Caissière Bar & Restaurant",
@@ -85,6 +86,7 @@ export default function GeneralAdminPage() {
   const [uPinCode, setUPinCode] = useState("");
   const [uPassword, setUPassword] = useState("");
   const [uPhone, setUPhone] = useState("+225 07 ");
+  const [uMustChangeCredentials, setUMustChangeCredentials] = useState(true);
 
   const openCreateUserModal = () => {
     setEditingUser(null);
@@ -94,6 +96,7 @@ export default function GeneralAdminPage() {
     setUPinCode("");
     setUPassword("");
     setUPhone("+225 07 ");
+    setUMustChangeCredentials(true);
     setUserModalOpen(true);
   };
 
@@ -105,6 +108,7 @@ export default function GeneralAdminPage() {
     setUPinCode(u.pinCode);
     setUPassword(u.password || "");
     setUPhone(u.phone);
+    setUMustChangeCredentials(Boolean(u.mustChangeCredentials));
     setUserModalOpen(true);
   };
 
@@ -119,6 +123,7 @@ export default function GeneralAdminPage() {
         password: uPassword || editingUser.password,
         phone: uPhone,
         badgeLabel: ROLE_LABELS[uRole],
+        mustChangeCredentials: uMustChangeCredentials,
       });
       if (!res.success) {
         showNotice("error", res.error || "Erreur lors de la mise à jour.");
@@ -135,12 +140,16 @@ export default function GeneralAdminPage() {
         password: uPassword || "rhr2026",
         phone: uPhone,
         badgeLabel: ROLE_LABELS[uRole],
+        mustChangeCredentials: uMustChangeCredentials,
       });
       if (!res.success) {
         showNotice("error", res.error || "Erreur lors de la création.");
         return;
       }
-      showNotice("success", `Nouveau compte créé pour ${uFullName}.`);
+      showNotice(
+        "success",
+        `Nouveau compte créé pour ${uFullName}. L'utilisateur pourra personnaliser son PIN et son mot de passe à sa 1ère connexion.`
+      );
       setUserModalOpen(false);
     }
   };
@@ -328,7 +337,7 @@ export default function GeneralAdminPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-rhr-gold/20 border border-rhr-gold/40 px-3.5 py-1 text-xs font-extrabold uppercase tracking-wider text-rhr-gold">
               <ShieldCheck className="h-4 w-4" />
-              <span>Propriétaire • Administrateur Général RHR</span>
+              <span>Administrateur RHR</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
               Centre d&apos;Administration Générale &amp; Configuration
@@ -451,8 +460,8 @@ export default function GeneralAdminPage() {
                 Comptes Utilisateurs &amp; Codes PIN Confidentiels
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Seul le Propriétaire (Administrateur Général) peut visualiser,
-                créer, modifier ou révoquer les accès du personnel.
+                Seul l&apos;Administrateur peut visualiser, créer, modifier ou
+                révoquer les accès du personnel.
               </p>
             </div>
             <button
@@ -485,7 +494,9 @@ export default function GeneralAdminPage() {
                     <div className="flex items-start justify-between gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-rhr-dark px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-rhr-gold">
                         <ShieldCheck className="h-3.5 w-3.5" />
-                        {u.role.replace(/_/g, " ")}
+                        {u.role === "PROPRIETAIRE"
+                          ? "ADMINISTRATEUR"
+                          : u.role.replace(/_/g, " ")}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {isSelf && (
@@ -541,6 +552,14 @@ export default function GeneralAdminPage() {
                           {u.phone}
                         </span>
                       </div>
+                      {u.mustChangeCredentials && (
+                        <div className="pt-1">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                            <KeyRound className="h-3 w-3" />
+                            1ère connexion : Changement PIN &amp; MDP actif
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1115,9 +1134,7 @@ export default function GeneralAdminPage() {
                     onChange={(e) => setURole(e.target.value as UserRole)}
                     className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-xs font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
                   >
-                    <option value="PROPRIETAIRE">
-                      Propriétaire • Admin Général
-                    </option>
+                    <option value="PROPRIETAIRE">Administrateur</option>
                     <option value="COMPTABLE">Expert Comptable &amp; Audit</option>
                     <option value="GERANT_HOTEL">Gérant Hôtel (5 Chambres)</option>
                     <option value="CAISSIERE_BAR_RESTO">
@@ -1187,6 +1204,19 @@ export default function GeneralAdminPage() {
                   />
                 </div>
               </div>
+
+              <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs font-bold text-amber-950 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uMustChangeCredentials}
+                  onChange={(e) => setUMustChangeCredentials(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-rhr-burgundy focus:ring-rhr-burgundy"
+                />
+                <span>
+                  Permettre / demander à cet utilisateur de modifier son Code
+                  PIN et son Mot de passe dès sa première connexion
+                </span>
+              </label>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
                 <button
@@ -1278,14 +1308,75 @@ export default function GeneralAdminPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Icône / Emoji
+                    Icône / Emoji (Liste)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={iEmoji}
                     onChange={(e) => setIEmoji(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-3 py-2 text-center text-lg"
-                  />
+                    className="w-full rounded-xl border border-gray-300 bg-white px-2.5 py-2.5 text-xs font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                  >
+                    <optgroup label="Boissons & Bar">
+                      {RHR_CATALOG_EMOJIS.filter(
+                        (em) => em.group === "BOISSONS_BAR"
+                      ).map((em) => (
+                        <option key={em.emoji} value={em.emoji}>
+                          {em.emoji} {em.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Plats & Cuisine">
+                      {RHR_CATALOG_EMOJIS.filter(
+                        (em) => em.group === "PLATS_CUISINE"
+                      ).map((em) => (
+                        <option key={em.emoji} value={em.emoji}>
+                          {em.emoji} {em.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Produits Phares">
+                      {RHR_CATALOG_EMOJIS.filter(
+                        (em) => em.group === "PRODUITS_PHARES"
+                      ).map((em) => (
+                        <option key={em.emoji} value={em.emoji}>
+                          {em.emoji} {em.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+
+              {/* Sélecteur visuel rapide d'icône/emoji */}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-gray-600">
+                  <span>Choix rapide d&apos;icône / emoji :</span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-gray-200 px-2 py-0.5 text-xs font-black text-rhr-dark">
+                    Sélectionné : <span className="text-base">{iEmoji}</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
+                  {RHR_CATALOG_EMOJIS.map((em) => {
+                    const active = iEmoji === em.emoji;
+                    return (
+                      <button
+                        key={`${em.group}-${em.emoji}`}
+                        type="button"
+                        onClick={() => setIEmoji(em.emoji)}
+                        title={em.label}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition",
+                          active
+                            ? "border-rhr-burgundy bg-rhr-burgundy text-white font-bold shadow-sm"
+                            : "border-gray-200 bg-white hover:bg-gray-100 text-gray-800"
+                        )}
+                      >
+                        <span className="text-base leading-none">
+                          {em.emoji}
+                        </span>
+                        <span className="text-[10px]">{em.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -269,8 +269,8 @@ export default function ClosuresPage() {
                 liveDiscrepancy === 0
                   ? "border-emerald-400 bg-emerald-50 text-emerald-950"
                   : liveDiscrepancy < 0
-                  ? "border-red-500 bg-red-50 text-red-950"
-                  : "border-amber-400 bg-amber-50 text-amber-950"
+                    ? "border-red-500 bg-red-50 text-red-950"
+                    : "border-amber-400 bg-amber-50 text-amber-950"
               )}
             >
               <div className="flex items-center gap-3">
@@ -284,13 +284,13 @@ export default function ClosuresPage() {
                     {liveDiscrepancy === 0
                       ? "0 F = CAISSE EXACTE (AUCUN ÉCART)"
                       : liveDiscrepancy < 0
-                      ? "ÉCART DÉTECTÉ : MANQUANT EN CAISSE !"
-                      : "EXCÉDENT DE CAISSE DÉTECTÉ"}
+                        ? "ÉCART DÉTECTÉ : MANQUANT EN CAISSE !"
+                        : "EXCÉDENT DE CAISSE DÉTECTÉ"}
                   </div>
                   <div className="text-[11px] opacity-80">
                     {liveDiscrepancy === 0
                       ? "Le montant physique correspond exactement aux écritures."
-                      : "Cet écart sera signalé en rouge au Propriétaire et au Comptable."}
+                      : "Cet écart sera signalé en rouge à l'Administrateur et au Comptable."}
                   </div>
                 </div>
               </div>
@@ -301,8 +301,8 @@ export default function ClosuresPage() {
                   liveDiscrepancy === 0
                     ? "text-emerald-700"
                     : liveDiscrepancy < 0
-                    ? "text-red-600"
-                    : "text-amber-800"
+                      ? "text-red-600"
+                      : "text-amber-800"
                 )}
               >
                 {liveDiscrepancy > 0 ? "+" : ""}
@@ -380,10 +380,8 @@ export default function ClosuresPage() {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    `🔒 *RHR M'BATTO — RAPPORT DE CLÔTURE DE CAISSE*\nPôle : *${
-                      lastCreatedClosure.pole
-                    }*\nAgent : *${
-                      lastCreatedClosure.closedByName
+                    `🔒 *RHR M'BATTO — RAPPORT DE CLÔTURE DE CAISSE*\nPôle : *${lastCreatedClosure.pole
+                    }*\nAgent : *${lastCreatedClosure.closedByName
                     }*\nDate : ${formatDateTime(
                       lastCreatedClosure.createdAt
                     )}\n----------------\n• Encaissé Espèces : ${formatCFA(
@@ -405,7 +403,7 @@ export default function ClosuresPage() {
                   className="inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] hover:bg-[#1ebe57] px-3.5 py-2 text-xs font-extrabold text-white"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  <span>Transmettre au Propriétaire sur WhatsApp</span>
+                  <span>Transmettre à l&apos;Administrateur sur WhatsApp</span>
                 </a>
 
                 <button
@@ -469,8 +467,8 @@ export default function ClosuresPage() {
                           cl.status === "VALIDE_PROPRIETAIRE"
                             ? "bg-emerald-100 text-emerald-800"
                             : cl.status === "ECART_A_JUSTIFIER"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-blue-100 text-blue-800"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
                         )}
                       >
                         {cl.status.replace(/_/g, " ")}
