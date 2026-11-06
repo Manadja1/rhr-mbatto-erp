@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rhr-burgundy: #7C0A02;
+  --rhr-burgundy-light: #9E1B12;
+  --rhr-dark: #111315;
+  --rhr-gold: #D4AF37;
+  --rhr-surface: #F8F9FA;
+}
+
+@layer base {
+  body {
+    background-color: var(--rhr-surface);
+    color: var(--rhr-dark);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom subtle scrollbars for POS & ERP tables */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7C0A02;
+}
