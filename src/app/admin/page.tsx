@@ -29,6 +29,7 @@ import {
   useRhrStore,
   UserRole,
   RhrUser,
+  Waitress,
   InventoryItem,
   InventoryPole,
   RHR_CATALOG_EMOJIS,
@@ -57,6 +58,7 @@ export default function GeneralAdminPage() {
     updateInventoryItem,
     deleteInventoryItem,
     createWaitress,
+    updateWaitress,
     deleteWaitress,
     updateRoomConfig,
   } = useRhrStore();
@@ -80,6 +82,7 @@ export default function GeneralAdminPage() {
   // ===========================================================================
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<RhrUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<RhrUser | null>(null);
   const [uFullName, setUFullName] = useState("");
   const [uEmail, setUEmail] = useState("");
   const [uRole, setURole] = useState<UserRole>("GERANT_HOTEL");
@@ -198,15 +201,15 @@ export default function GeneralAdminPage() {
       defaultPole === "BAR_BOISSON"
         ? "Bières & Pressions"
         : defaultPole === "PLAT_MENU"
-        ? "Grillades & Braisés"
-        : "Matière Première Phare"
+          ? "Grillades & Braisés"
+          : "Matière Première Phare"
     );
     setIPrice(
       defaultPole === "BAR_BOISSON"
         ? 1000
         : defaultPole === "PLAT_MENU"
-        ? 6000
-        : 0
+          ? 6000
+          : 0
     );
     setIStock(20);
     setIAlert(5);
@@ -214,8 +217,8 @@ export default function GeneralAdminPage() {
       defaultPole === "BAR_BOISSON"
         ? "Bouteilles"
         : defaultPole === "PLAT_MENU"
-        ? "Plat"
-        : "Unités"
+          ? "Plat"
+          : "Unités"
     );
     setILinkedCoreId(defaultPole === "PLAT_MENU" ? coreProducts[0]?.id || "" : "");
     setIAvailableQr(defaultPole !== "CUISINE_PHARE");
@@ -223,8 +226,8 @@ export default function GeneralAdminPage() {
       defaultPole === "BAR_BOISSON"
         ? "🍺"
         : defaultPole === "PLAT_MENU"
-        ? "🍗"
-        : "🐓"
+          ? "🍗"
+          : "🐓"
     );
     setItemModalOpen(true);
   };
@@ -309,10 +312,55 @@ export default function GeneralAdminPage() {
   };
 
   // ===========================================================================
-  // ÉTAT ONGLET 3 : SERVEUSES & CONFIGURATION DES 5 CHAMBRES
+  // ÉTAT ONGLET 3 & GESTION COMPLÈTE DES SERVEUSES (AJOUT / MODIFICATION / SUPPRESSION)
   // ===========================================================================
   const [newWaitressName, setNewWaitressName] = useState("");
   const [newWaitressPhone, setNewWaitressPhone] = useState("+225 07 ");
+  const [waitressModalOpen, setWaitressModalOpen] = useState(false);
+  const [editingWaitress, setEditingWaitress] = useState<Waitress | null>(null);
+  const [wName, setWName] = useState("");
+  const [wPhone, setWPhone] = useState("+225 07 ");
+
+  const openCreateWaitressModal = () => {
+    setEditingWaitress(null);
+    setWName("");
+    setWPhone("+225 07 ");
+    setWaitressModalOpen(true);
+  };
+
+  const openEditWaitressModal = (w: Waitress) => {
+    setEditingWaitress(w);
+    setWName(w.name);
+    setWPhone(w.phone);
+    setWaitressModalOpen(true);
+  };
+
+  const handleSaveWaitressModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingWaitress) {
+      const res = updateWaitress(editingWaitress.id, {
+        name: wName,
+        phone: wPhone,
+      });
+      if (!res.success) {
+        showNotice("error", res.error || "Erreur lors de la modification.");
+        return;
+      }
+      showNotice("success", `Serveuse "${wName}" mise à jour avec succès.`);
+      setWaitressModalOpen(false);
+    } else {
+      const res = createWaitress({
+        name: wName,
+        phone: wPhone,
+      });
+      if (!res.success) {
+        showNotice("error", res.error || "Erreur lors de l'ajout.");
+        return;
+      }
+      showNotice("success", `Nouvelle serveuse "${wName}" ajoutée à l'équipe.`);
+      setWaitressModalOpen(false);
+    }
+  };
 
   const handleAddWaitress = (e: React.FormEvent) => {
     e.preventDefault();
@@ -358,6 +406,14 @@ export default function GeneralAdminPage() {
             >
               <Plus className="h-4 w-4" />
               <span>Créer un Compte Utilisateur</span>
+            </button>
+            <button
+              type="button"
+              onClick={openCreateWaitressModal}
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-rhr-gold/40 px-4 py-2.5 text-xs font-black text-rhr-gold shadow transition"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Ajouter une Serveuse</span>
             </button>
             <button
               type="button"
@@ -486,8 +542,8 @@ export default function GeneralAdminPage() {
                     !isActive
                       ? "border-red-200 bg-red-50/30 opacity-75"
                       : isSelf
-                      ? "border-rhr-gold ring-2 ring-rhr-gold/20"
-                      : "border-gray-200"
+                        ? "border-rhr-gold ring-2 ring-rhr-gold/20"
+                        : "border-gray-200"
                   )}
                 >
                   <div className="space-y-3">
@@ -563,7 +619,7 @@ export default function GeneralAdminPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
                     <button
                       type="button"
                       onClick={() => openEditUserModal(u)}
@@ -582,8 +638,7 @@ export default function GeneralAdminPage() {
                               updateUserAccount(u.id, { isActive: !isActive });
                               showNotice(
                                 "success",
-                                `Compte ${u.fullName} ${
-                                  !isActive ? "réactivé" : "désactivé"
+                                `Compte ${u.fullName} ${!isActive ? "réactivé" : "désactivé"
                                 }.`
                               );
                             }}
@@ -608,24 +663,12 @@ export default function GeneralAdminPage() {
 
                           <button
                             type="button"
-                            onClick={() => {
-                              const res = deleteUserAccount(u.id);
-                              if (!res.success) {
-                                showNotice(
-                                  "error",
-                                  res.error || "Impossible de supprimer."
-                                );
-                              } else {
-                                showNotice(
-                                  "success",
-                                  `Compte ${u.fullName} supprimé.`
-                                );
-                              }
-                            }}
-                            title="Supprimer ce compte"
-                            className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-2.5 py-2 text-xs font-bold text-red-700 transition"
+                            onClick={() => setUserToDelete(u)}
+                            title="Supprimer définitivement cet utilisateur s'il ne travaille plus avec nous"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white px-3 py-2 text-xs font-bold text-red-700 transition"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
+                            <span>Supprimer</span>
                           </button>
                         </>
                       )}
@@ -634,6 +677,114 @@ export default function GeneralAdminPage() {
                 </div>
               );
             })}
+          </div>
+
+          {/* =================================================================
+              SECTION SERVEUSES (GESTION IDENTIQUE AUX UTILISATEURS : AJOUT / MODIF / SUPPRESSION)
+          ================================================================= */}
+          <div className="pt-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl border border-gray-200 p-5 shadow-card">
+              <div>
+                <h2 className="text-lg font-black text-rhr-dark">
+                  Gestion des Serveuses — Bar &amp; Restaurant ({waitresses.length})
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Ajoutez de nouvelles serveuses, modifiez leurs coordonnées ou
+                  supprimez une serveuse qui ne travaille plus avec vous.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openCreateWaitressModal}
+                className="inline-flex items-center gap-2 rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-4 py-2.5 text-xs font-bold text-white shadow-rhr transition shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nouvelle Serveuse</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {waitresses.map((w) => (
+                <div
+                  key={w.id}
+                  className="rounded-2xl border border-gray-200 bg-white p-5 shadow-card flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-rhr-burgundy/10 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-rhr-burgundy">
+                        <UtensilsCrossed className="h-3.5 w-3.5" />
+                        SERVEUSE BAR &amp; RESTO
+                      </span>
+                      <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                        Active au POS
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-base font-black text-rhr-dark">
+                        {w.name}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Attribution des commandes Caisse &amp; Menu QR
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-rhr-surface border border-gray-200 p-3 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          <Phone className="h-3.5 w-3.5 text-gray-400" />
+                          Téléphone :
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {w.phone}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">
+                          Commandes servies :
+                        </span>
+                        <span className="font-bold text-rhr-dark">
+                          {w.ordersCount} cmd ({formatCFA(w.totalSalesAmount)})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => openEditWaitressModal(w)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-xs font-bold text-rhr-dark transition"
+                    >
+                      <Edit3 className="h-3.5 w-3.5 text-rhr-burgundy" />
+                      <span>Modifier</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const res = deleteWaitress(w.id);
+                        if (!res.success) {
+                          showNotice(
+                            "error",
+                            res.error || "Impossible de supprimer."
+                          );
+                        } else {
+                          showNotice(
+                            "success",
+                            `Serveuse "${w.name}" supprimée de l'équipe.`
+                          );
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white px-3 py-2 text-xs font-bold text-red-700 transition"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Supprimer</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -772,15 +923,15 @@ export default function GeneralAdminPage() {
                               item.pole === "PLAT_MENU"
                                 ? "bg-amber-50 text-amber-800 border border-amber-200"
                                 : item.pole === "BAR_BOISSON"
-                                ? "bg-rose-50 text-rhr-burgundy border border-rose-200"
-                                : "bg-blue-50 text-blue-800 border border-blue-200"
+                                  ? "bg-rose-50 text-rhr-burgundy border border-rose-200"
+                                  : "bg-blue-50 text-blue-800 border border-blue-200"
                             )}
                           >
                             {item.pole === "PLAT_MENU"
                               ? "Plat Menu"
                               : item.pole === "BAR_BOISSON"
-                              ? "Boisson Bar"
-                              : "Produit Phare"}
+                                ? "Boisson Bar"
+                                : "Produit Phare"}
                           </span>
                         </td>
 
@@ -984,8 +1135,7 @@ export default function GeneralAdminPage() {
                         });
                         showNotice(
                           "success",
-                          `Chambre ${room.roomNumber} : Passage 3H ${
-                            nextAllow ? "activé (5 000 F)" : "désactivé"
+                          `Chambre ${room.roomNumber} : Passage 3H ${nextAllow ? "activé (5 000 F)" : "désactivé"
                           }.`
                         );
                       }}
@@ -1218,10 +1368,176 @@ export default function GeneralAdminPage() {
                 </span>
               </label>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                {editingUser && currentUser?.id !== editingUser.id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserModalOpen(false);
+                      setUserToDelete(editingUser);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-600 hover:text-white px-3.5 py-2.5 text-xs font-bold text-red-700 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Supprimer ce compte</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUserModalOpen(false)}
+                    className="rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-5 py-2.5 text-xs font-bold text-white shadow-rhr transition"
+                  >
+                    {editingUser
+                      ? "Enregistrer les modifications"
+                      : "Créer le compte"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL DE CONFIRMATION DE SUPPRESSION D'UN COMPTE UTILISATEUR
+      ===================================================================== */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-2xl bg-white border-2 border-red-200 p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-0.5 text-[11px] font-extrabold uppercase text-red-800">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Suppression Définitive d&apos;Accès
+                </span>
+                <h3 className="text-lg font-black text-rhr-dark">
+                  Supprimer le compte de {userToDelete.fullName} ?
+                </h3>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Si cet employé ne travaille plus avec vous, son Code PIN (
+                  <code className="font-mono font-bold text-rhr-burgundy">
+                    {userToDelete.pinCode}
+                  </code>
+                  ) et son adresse email (
+                  <code className="font-mono font-bold">
+                    {userToDelete.email}
+                  </code>
+                  ) seront immédiatement révoqués et ne pourront plus se
+                  connecter à l&apos;application.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const res = deleteUserAccount(userToDelete.id);
+                  if (!res.success) {
+                    showNotice(
+                      "error",
+                      res.error || "Impossible de supprimer ce compte."
+                    );
+                  } else {
+                    showNotice(
+                      "success",
+                      `Le compte de "${userToDelete.fullName}" a été définitivement supprimé.`
+                    );
+                  }
+                  setUserToDelete(null);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2 text-xs font-extrabold text-white shadow transition"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Confirmer la suppression</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL AJOUT / MODIFICATION D'UNE SERVEUSE
+      ===================================================================== */}
+      {waitressModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-2xl bg-white border border-gray-200 p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-rhr-burgundy">
+                  Équipe Bar &amp; Restaurant RHR
+                </span>
+                <h3 className="text-lg font-black text-rhr-dark">
+                  {editingWaitress
+                    ? `Modifier la serveuse : ${editingWaitress.name}`
+                    : "Ajouter une nouvelle serveuse"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWaitressModalOpen(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveWaitressModal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Prénom / Nom de la Serveuse *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={wName}
+                  onChange={(e) => setWName(e.target.value)}
+                  placeholder="Ex: Awa, Chantal, Clarisse..."
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-medium focus:border-rhr-burgundy focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Numéro de Téléphone
+                </label>
+                <input
+                  type="text"
+                  value={wPhone}
+                  onChange={(e) => setWPhone(e.target.value)}
+                  placeholder="+225 07 00 00 00 00"
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-medium focus:border-rhr-burgundy focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setUserModalOpen(false)}
+                  onClick={() => setWaitressModalOpen(false)}
                   className="rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
                 >
                   Annuler
@@ -1230,9 +1546,9 @@ export default function GeneralAdminPage() {
                   type="submit"
                   className="rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-5 py-2.5 text-xs font-bold text-white shadow-rhr transition"
                 >
-                  {editingUser
-                    ? "Enregistrer les modifications"
-                    : "Créer le compte"}
+                  {editingWaitress
+                    ? "Enregistrer"
+                    : "Ajouter la serveuse"}
                 </button>
               </div>
             </form>

@@ -52,6 +52,7 @@ export default function PosPage() {
     createPosOrder,
     processIncomingQrOrder,
     cancelQrOrder,
+    ingestRemoteQrOrders,
   } = useRhrStore();
 
   // Onglet actif : Terminal POS, Commandes QR Entrantes, ou Rendement Serveuses
@@ -181,10 +182,10 @@ export default function PosPage() {
         return prev.map((c) =>
           c.itemId === item.id
             ? {
-                ...c,
-                quantity: c.quantity + 1,
-                subtotal: (c.quantity + 1) * c.unitPrice,
-              }
+              ...c,
+              quantity: c.quantity + 1,
+              subtotal: (c.quantity + 1) * c.unitPrice,
+            }
             : c
         );
       }
@@ -286,8 +287,8 @@ export default function PosPage() {
       settlementCategory === "ESPECES"
         ? "ESPECES"
         : settlementCategory === "TRANSFERT_CHAMBRE"
-        ? "TRANSFERT_CHAMBRE"
-        : mobileMoneyProvider;
+          ? "TRANSFERT_CHAMBRE"
+          : mobileMoneyProvider;
 
     const result = createPosOrder({
       waitressId: selectedWaitressId,
@@ -334,9 +335,46 @@ export default function PosPage() {
     }
 
     if (res.order) {
+      fetch("/api/qr-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SYNC_FROM_POS",
+          resolvedOrderId: qrOrder.id,
+          inventory,
+        }),
+      }).catch(() => { });
       setLastCompletedOrder(res.order);
     }
   };
+
+  // Synchronisation temps réel des commandes QR scannées depuis les téléphones des clients
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    fetch("/api/qr-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "SYNC_FROM_POS",
+        inventory,
+      }),
+    }).catch(() => { });
+
+    const pollQrOrders = () => {
+      fetch("/api/qr-sync")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data?.qrOrders) && data.qrOrders.length > 0) {
+            ingestRemoteQrOrders(data.qrOrders);
+          }
+        })
+        .catch(() => { });
+    };
+
+    pollQrOrders();
+    const interval = setInterval(pollQrOrders, 3000);
+    return () => clearInterval(interval);
+  }, [inventory, ingestRemoteQrOrders]);
 
   return (
     <div className="space-y-5">
@@ -379,8 +417,8 @@ export default function PosPage() {
               activeView === "QR_INCOMING"
                 ? "bg-rhr-gold text-rhr-dark shadow"
                 : incomingQrOrders.length > 0
-                ? "bg-amber-500 text-rhr-dark animate-pulse shadow-lg"
-                : "bg-white/10 text-gray-200 hover:bg-white/20"
+                  ? "bg-amber-500 text-rhr-dark animate-pulse shadow-lg"
+                  : "bg-white/10 text-gray-200 hover:bg-white/20"
             )}
           >
             <BellRing className="h-4 w-4" />
@@ -509,8 +547,8 @@ export default function PosPage() {
                       isOutOfStock
                         ? "border-red-300 bg-gray-100/90 opacity-80 select-none"
                         : inCartLine
-                        ? "border-rhr-burgundy bg-rhr-burgundy/[0.03] shadow-rhr"
-                        : "border-gray-200 bg-white hover:border-rhr-burgundy/60 shadow-card"
+                          ? "border-rhr-burgundy bg-rhr-burgundy/[0.03] shadow-rhr"
+                          : "border-gray-200 bg-white hover:border-rhr-burgundy/60 shadow-card"
                     )}
                   >
                     {/* Bandeau Rouge RUPTURE DE STOCK - VENTE BLOQUÉE si stock === 0 */}
@@ -530,8 +568,8 @@ export default function PosPage() {
                             isOutOfStock
                               ? "bg-red-100 text-red-800 border-red-300"
                               : effectiveStock <= item.alertThreshold
-                              ? "bg-amber-100 text-amber-900 border-amber-300"
-                              : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                ? "bg-amber-100 text-amber-900 border-amber-300"
+                                : "bg-emerald-50 text-emerald-800 border-emerald-200"
                           )}
                         >
                           Stock : {effectiveStock}{" "}
@@ -927,10 +965,10 @@ export default function PosPage() {
                     {!selectedWaitressId
                       ? "Sélectionnez une serveuse"
                       : settlementCategory === "TRANSFERT_CHAMBRE"
-                      ? `Transférer (${formatCFA(
+                        ? `Transférer (${formatCFA(
                           cartTotal
                         )}) sur Chambre ${selectedRoomNumberForTransfer}`
-                      : `Valider & Encaisser (${formatCFA(cartTotal)})`}
+                        : `Valider & Encaisser (${formatCFA(cartTotal)})`}
                   </span>
                 </button>
               </div>
@@ -1179,7 +1217,17 @@ export default function PosPage() {
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
                       <button
                         type="button"
-                        onClick={() => cancelQrOrder(qrOrd.id)}
+                        onClick={() => {
+                          cancelQrOrder(qrOrd.id);
+                          fetch("/api/qr-sync", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "SYNC_FROM_POS",
+                              resolvedOrderId: qrOrd.id,
+                            }),
+                          }).catch(() => { });
+                        }}
                         className="h-11 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 px-4 text-xs font-bold text-gray-600 transition inline-flex items-center justify-center whitespace-nowrap"
                       >
                         Annuler
@@ -1283,8 +1331,8 @@ export default function PosPage() {
                         ord.status === "TRANSFEREE_CHAMBRE"
                           ? "bg-blue-100 text-blue-800"
                           : ord.status === "NOUVELLE_QR"
-                          ? "bg-amber-100 text-amber-900"
-                          : "bg-emerald-100 text-emerald-800"
+                            ? "bg-amber-100 text-amber-900"
+                            : "bg-emerald-100 text-emerald-800"
                       )}
                     >
                       {ord.paymentMode.replace(/_/g, " ")}
@@ -1381,20 +1429,17 @@ export default function PosPage() {
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(
-                  `🍽️ *RHR — BAR & RESTAURANT M'BATTO*\nTicket : *#${
-                    lastCompletedOrder.orderNumber
-                  }*\nServeuse : *${
-                    lastCompletedOrder.waitressName
-                  }*\nEmplacement : ${
-                    lastCompletedOrder.tableOrRoomLabel
+                  `🍽️ *RHR — BAR & RESTAURANT M'BATTO*\nTicket : *#${lastCompletedOrder.orderNumber
+                  }*\nServeuse : *${lastCompletedOrder.waitressName
+                  }*\nEmplacement : ${lastCompletedOrder.tableOrRoomLabel
                   }\n----------------\n${lastCompletedOrder.items
                     .map(
                       (i) =>
                         `• ${i.quantity}x ${i.name} : ${formatCFA(i.subtotal)}`
                     )
                     .join("\n")}\n----------------\n*TOTAL : ${formatCFA(
-                    lastCompletedOrder.totalAmount
-                  )}* (${lastCompletedOrder.paymentMode.replace(/_/g, " ")})`
+                      lastCompletedOrder.totalAmount
+                    )}* (${lastCompletedOrder.paymentMode.replace(/_/g, " ")})`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

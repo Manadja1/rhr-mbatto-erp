@@ -1581,6 +1581,11 @@ interface RhrStoreState {
     phone: string;
   }) => { success: boolean; error?: string; waitress?: Waitress };
 
+  updateWaitress: (
+    waitressId: string,
+    updates: Partial<Pick<Waitress, "name" | "phone" | "isActive">>
+  ) => { success: boolean; error?: string };
+
   deleteWaitress: (waitressId: string) => { success: boolean; error?: string };
 
   updateRoomConfig: (
@@ -1697,6 +1702,8 @@ interface RhrStoreState {
   };
 
   cancelQrOrder: (orderId: string) => void;
+  ingestRemoteQrOrders: (orders: PosOrder[]) => void;
+  syncCatalogSnapshot: (items: InventoryItem[]) => void;
 
   restockInventoryItem: (input: {
     itemId: string;
@@ -2258,6 +2265,32 @@ export const useRhrStore = create<RhrStoreState>()(
           name: newWaitress.name,
         });
         return { success: true, waitress: newWaitress };
+      },
+
+      updateWaitress: (waitressId, updates) => {
+        const state = get();
+        const target = state.waitresses.find((w) => w.id === waitressId);
+        if (!target) {
+          return { success: false, error: "Serveuse introuvable." };
+        }
+        set((prev) => ({
+          waitresses: prev.waitresses.map((w) =>
+            w.id === waitressId
+              ? {
+                  ...w,
+                  ...updates,
+                  name: updates.name !== undefined ? updates.name.trim() : w.name,
+                  phone:
+                    updates.phone !== undefined ? updates.phone.trim() : w.phone,
+                }
+              : w
+          ),
+        }));
+        get().enqueueSyncOperation("waitresses", "UPDATE", {
+          id: waitressId,
+          ...updates,
+        });
+        return { success: true };
       },
 
       deleteWaitress: (waitressId) => {
@@ -3478,6 +3511,25 @@ export const useRhrStore = create<RhrStoreState>()(
             o.id === orderId ? { ...o, status: "ANNULEE" } : o
           ),
         }));
+      },
+
+      ingestRemoteQrOrders: (orders) => {
+        if (!Array.isArray(orders) || orders.length === 0) return;
+        set((prev) => {
+          const existingIds = new Set(prev.posOrders.map((o) => o.id));
+          const newOnes = orders.filter(
+            (o) => o && o.id && !existingIds.has(o.id)
+          );
+          if (newOnes.length === 0) return prev;
+          return {
+            posOrders: [...newOnes, ...prev.posOrders],
+          };
+        });
+      },
+
+      syncCatalogSnapshot: (items) => {
+        if (!Array.isArray(items) || items.length === 0) return;
+        set({ inventory: items });
       },
 
       restockInventoryItem: ({

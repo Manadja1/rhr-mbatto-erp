@@ -30,12 +30,18 @@ const TABLES_LIST = Array.from({ length: 15 }, (_, i) => `Table ${i + 1}`);
 const ROOMS_LIST = Array.from({ length: 5 }, (_, i) => `Chambre ${i + 1}`);
 
 export default function QrMenuPage() {
-  const { inventory, submitQrCustomerOrder } = useRhrStore();
+  const {
+    currentUser,
+    inventory,
+    submitQrCustomerOrder,
+    syncCatalogSnapshot,
+  } = useRhrStore();
 
   const [locationType, setLocationType] = useState<"TABLE" | "CHAMBRE">(
     "TABLE"
   );
   const [selectedLocation, setSelectedLocation] = useState<string>("Table 1");
+  const [scannedFromQr, setScannedFromQr] = useState<boolean>(false);
   const [guestFirstName, setGuestFirstName] = useState<string>("");
   const [activeCategory, setActiveCategory] = useState<string>("TOUS");
   const [cart, setCart] = useState<PosOrderItem[]>([]);
@@ -43,11 +49,13 @@ export default function QrMenuPage() {
   const [qrCardsModalOpen, setQrCardsModalOpen] = useState<boolean>(false);
 
   // Lecture automatique du paramètre ?loc=Table+X ou ?loc=Chambre+Y issu du QR Code scanné
+  // et récupération du catalogue de prix en direct depuis le serveur
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const loc = params.get("loc");
     if (loc) {
+      setScannedFromQr(true);
       if (loc.toLowerCase().startsWith("chambre")) {
         setLocationType("CHAMBRE");
         setSelectedLocation(loc);
@@ -56,7 +64,18 @@ export default function QrMenuPage() {
         setSelectedLocation(loc);
       }
     }
-  }, []);
+
+    fetch("/api/qr-sync")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data?.catalogSnapshot) && data.catalogSnapshot.length > 0) {
+          syncCatalogSnapshot(data.catalogSnapshot);
+        }
+      })
+      .catch(() => {
+        // Mode 100% hors-ligne local
+      });
+  }, [syncCatalogSnapshot]);
 
   const getEffectiveStock = (item: InventoryItem): number => {
     if (item.pole === "PLAT_MENU" && item.linkedCoreIngredientId) {
@@ -70,8 +89,13 @@ export default function QrMenuPage() {
     .filter((i) => i.pole !== "CUISINE_PHARE" && i.isAvailableOnQr)
     .filter((item) => {
       if (activeCategory === "TOUS") return true;
+      if (activeCategory === "NOURRITURE") return item.pole === "PLAT_MENU";
+      if (activeCategory === "BOISSONS") return item.pole === "BAR_BOISSON";
       return item.category === activeCategory;
     });
+
+  const foodItems = qrMenuItems.filter((i) => i.pole === "PLAT_MENU");
+  const drinkItems = qrMenuItems.filter((i) => i.pole === "BAR_BOISSON");
 
   const handleAdd = (item: InventoryItem) => {
     const stock = getEffectiveStock(item);
@@ -84,10 +108,10 @@ export default function QrMenuPage() {
         return prev.map((c) =>
           c.itemId === item.id
             ? {
-                ...c,
-                quantity: c.quantity + 1,
-                subtotal: (c.quantity + 1) * c.unitPrice,
-              }
+              ...c,
+              quantity: c.quantity + 1,
+              subtotal: (c.quantity + 1) * c.unitPrice,
+            }
             : c
         );
       }
@@ -133,6 +157,18 @@ export default function QrMenuPage() {
     });
 
     if (res.success && res.order) {
+      // Envoi simultané au serveur local/cloud pour affichage immédiat sur l'écran de la Caissière Bar/Resto (/pos)
+      fetch("/api/qr-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SUBMIT_QR_ORDER",
+          order: res.order,
+        }),
+      }).catch(() => {
+        // Fallback localStorage déjà actif
+      });
+
       setCart([]);
       setSubmittedOrder(res.order);
     }
@@ -149,27 +185,54 @@ export default function QrMenuPage() {
           <div>
             <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-rhr-gold">
               <Sparkles className="h-3 w-3" />
-              Carte Digitale Interactive — Commande Directe
+              Menu Digital Client — Nourriture &amp; Boissons
             </span>
             <h1 className="text-xl sm:text-2xl font-black leading-tight mt-0.5">
               RHR — R&Eacute;SIDENCE H&Ocirc;TEL LE R&Ecirc;VE DE M&apos;BATTO
             </h1>
             <p className="text-xs text-gray-300 mt-0.5">
-              Commandez depuis votre table ou votre chambre climatisée. Service
-              rapide garanti.
+              Consultez le menu de la nourriture et des boissons sur votre
+              téléphone et passez votre commande directement depuis votre{" "}
+              {locationType === "CHAMBRE" ? "chambre" : "table"}.
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setQrCardsModalOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-rhr-gold/40 bg-white/10 hover:bg-white/20 px-3.5 py-2 text-xs font-bold text-rhr-gold transition shrink-0"
-        >
-          <Printer className="h-4 w-4" />
-          <span>Cartes QR Imprimables</span>
-        </button>
+        {currentUser && (
+          <button
+            type="button"
+            onClick={() => setQrCardsModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rhr-gold/40 bg-white/10 hover:bg-white/20 px-3.5 py-2 text-xs font-bold text-rhr-gold transition shrink-0"
+          >
+            <Printer className="h-4 w-4" />
+            <span>Cartes QR Imprimables</span>
+          </button>
+        )}
       </div>
+
+      {/* Bandeau d'accueil automatique lorsque le client a scanné le QR Code de sa Table ou Chambre */}
+      {scannedFromQr && (
+        <div className="rounded-2xl border-2 border-rhr-gold bg-amber-50 px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-rhr-burgundy text-rhr-gold flex items-center justify-center shrink-0">
+              <QrCode className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-rhr-burgundy block">
+                QR Code Scanné avec Succès
+              </span>
+              <span className="text-sm font-black text-rhr-dark">
+                Vous commandez depuis :{" "}
+                <strong className="text-rhr-burgundy">{selectedLocation}</strong>
+              </span>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-amber-900">
+            Sélectionnez vos boissons &amp; plats puis validez en bas de
+            l&apos;écran
+          </span>
+        </div>
+      )}
 
       {/* =====================================================================
           CONFIRMATION DE COMMANDE QR ENVOYÉE EN TEMPS RÉEL À LA CAISSE
@@ -197,24 +260,42 @@ export default function QrMenuPage() {
             </div>
           </div>
 
+          <div className="rounded-2xl bg-white border border-emerald-200 p-3.5 space-y-1.5 text-xs">
+            <div className="font-extrabold text-rhr-dark uppercase text-[10px] tracking-wider">
+              Récapitulatif de votre commande :
+            </div>
+            {submittedOrder.items.map((it, idx) => (
+              <div key={idx} className="flex items-center justify-between">
+                <span className="font-bold text-rhr-dark">
+                  {it.quantity}x {it.name}
+                </span>
+                <span className="font-black text-rhr-burgundy">
+                  {formatCFA(it.subtotal)}
+                </span>
+              </div>
+            ))}
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-emerald-200">
-            <span className="text-xs text-emerald-800">
-              Notre serveuse arrive vers vous. En mode démo, vous pouvez voir
-              cette commande clignoter sur la caisse POS :
+            <span className="text-xs font-semibold text-emerald-900">
+              Notre serveuse prépare votre commande et vous l&apos;apporte à{" "}
+              <strong>{submittedOrder.tableOrRoomLabel}</strong>.
             </span>
             <div className="flex items-center gap-2">
-              <Link
-                href="/pos"
-                className="rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-4 py-2 text-xs font-extrabold text-white shadow transition"
-              >
-                Ouvrir Caisse POS (Commandes QR Entrantes) →
-              </Link>
+              {currentUser && (
+                <Link
+                  href="/pos"
+                  className="rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-4 py-2 text-xs font-extrabold text-white shadow transition"
+                >
+                  Ouvrir Caisse POS →
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => setSubmittedOrder(null)}
-                className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-900"
+                className="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-extrabold text-emerald-900"
               >
-                Nouvelle commande
+                Passer une autre commande
               </button>
             </div>
           </div>
@@ -308,18 +389,20 @@ export default function QrMenuPage() {
       </div>
 
       {/* =====================================================================
-          2. FILTRES CATÉGORIES DE LA CARTE RHR
+          2. FILTRES CATÉGORIES DE LA CARTE RHR (NOURRITURE & BOISSONS)
       ===================================================================== */}
       <div className="flex flex-wrap items-center gap-2">
         {[
-          { id: "TOUS", label: "Toute la Carte RHR" },
+          { id: "TOUS", label: "🍽️ Tout le Menu (Nourriture & Boissons)" },
+          { id: "NOURRITURE", label: "🍗 Menu Nourriture (Plats & Grillades)" },
+          { id: "BOISSONS", label: "🍺 Menu Boissons (Bar & Fraîcheurs)" },
           { id: "Grillades & Braisés", label: "🔥 Grillades & Braisés" },
           {
             id: "Spécialités Ivoiriennes",
-            label: "🍲 Kedjenou & Soupes Africaines",
+            label: "🍲 Kedjenou & Soupes",
           },
-          { id: "Bières & Pressions", label: "🍺 Bières Fraîches" },
-          { id: "Vins & Spiritueux", label: "🍷 Vins & Spiritueux" },
+          { id: "Bières & Pressions", label: "🍻 Bières" },
+          { id: "Vins & Spiritueux", label: "🍷 Vins & Liqueurs" },
           { id: "Softs & Eaux", label: "🥤 Sucreries & Eaux" },
         ].map((cat) => (
           <button
@@ -339,81 +422,186 @@ export default function QrMenuPage() {
       </div>
 
       {/* =====================================================================
-          3. GRILLE DES PLATS & BOISSONS (ÉPUISÉ SI STOCK === 0)
+          3. AFFICHAGE STRUCTURÉ : MENU DE LA NOURRITURE & MENU DES BOISSONS
       ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {qrMenuItems.map((item) => {
-          const stock = getEffectiveStock(item);
-          const isZero = stock <= 0;
-          const inCart = cart.find((c) => c.itemId === item.id);
-
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "rounded-3xl border-2 p-4 flex items-center justify-between gap-4 transition",
-                isZero
-                  ? "border-gray-200 bg-gray-100 opacity-70"
-                  : inCart
-                  ? "border-rhr-burgundy bg-white shadow-rhr"
-                  : "border-gray-200 bg-white shadow-card"
-              )}
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="h-14 w-14 rounded-2xl bg-rhr-surface border border-gray-200 flex items-center justify-center text-3xl shrink-0">
-                  {item.imageEmoji}
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    {item.category}
-                  </span>
-                  <h3 className="font-black text-sm text-rhr-dark leading-snug">
-                    {item.name}
-                  </h3>
-                  <div className="text-sm font-black text-rhr-burgundy mt-1">
-                    {formatCFA(item.unitPrice)}
-                  </div>
-                </div>
-              </div>
-
-              {isZero ? (
-                <span className="inline-flex items-center gap-1 rounded-xl bg-red-100 border border-red-300 px-3 py-2 text-[10px] font-black uppercase text-rhr-burgundy shrink-0">
-                  <Ban className="h-3.5 w-3.5" />
-                  <span>Épuisé</span>
-                </span>
-              ) : inCart ? (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleDelta(item.id, -1)}
-                    className="h-9 w-9 rounded-xl border border-gray-300 bg-white flex items-center justify-center font-bold"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="w-6 text-center font-black text-sm text-rhr-dark">
-                    {inCart.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleAdd(item)}
-                    className="h-9 w-9 rounded-xl bg-rhr-burgundy text-white flex items-center justify-center font-bold"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleAdd(item)}
-                  className="rounded-2xl bg-rhr-dark hover:bg-rhr-burgundy px-4 py-2.5 text-xs font-extrabold text-white transition shrink-0 flex items-center gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5 text-rhr-gold" />
-                  <span>Choisir</span>
-                </button>
-              )}
+      <div className="space-y-8">
+        {foodItems.length > 0 && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between border-b-2 border-rhr-burgundy/20 pb-2">
+              <h2 className="text-base sm:text-lg font-black text-rhr-dark flex items-center gap-2">
+                <UtensilsCrossed className="h-5 w-5 text-rhr-burgundy" />
+                <span>Menu de la Nourriture — Restaurant &amp; Grillades</span>
+              </h2>
+              <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-extrabold text-amber-900">
+                {foodItems.length} plat(s)
+              </span>
             </div>
-          );
-        })}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {foodItems.map((item) => {
+                const stock = getEffectiveStock(item);
+                const isZero = stock <= 0;
+                const inCart = cart.find((c) => c.itemId === item.id);
+
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "rounded-3xl border-2 p-4 flex items-center justify-between gap-4 transition",
+                      isZero
+                        ? "border-gray-200 bg-gray-100 opacity-70"
+                        : inCart
+                          ? "border-rhr-burgundy bg-white shadow-rhr"
+                          : "border-gray-200 bg-white shadow-card"
+                    )}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="h-14 w-14 rounded-2xl bg-rhr-surface border border-gray-200 flex items-center justify-center text-3xl shrink-0">
+                        {item.imageEmoji}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          {item.category}
+                        </span>
+                        <h3 className="font-black text-sm text-rhr-dark leading-snug">
+                          {item.name}
+                        </h3>
+                        <div className="text-sm font-black text-rhr-burgundy mt-1">
+                          {formatCFA(item.unitPrice)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isZero ? (
+                      <span className="inline-flex items-center gap-1 rounded-xl bg-red-100 border border-red-300 px-3 py-2 text-[10px] font-black uppercase text-rhr-burgundy shrink-0">
+                        <Ban className="h-3.5 w-3.5" />
+                        <span>Épuisé</span>
+                      </span>
+                    ) : inCart ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleDelta(item.id, -1)}
+                          className="h-9 w-9 rounded-xl border border-gray-300 bg-white flex items-center justify-center font-bold"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="w-6 text-center font-black text-sm text-rhr-dark">
+                          {inCart.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAdd(item)}
+                          className="h-9 w-9 rounded-xl bg-rhr-burgundy text-white flex items-center justify-center font-bold"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAdd(item)}
+                        className="rounded-2xl bg-rhr-dark hover:bg-rhr-burgundy px-4 py-2.5 text-xs font-extrabold text-white transition shrink-0 flex items-center gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5 text-rhr-gold" />
+                        <span>Choisir</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {drinkItems.length > 0 && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between border-b-2 border-rhr-burgundy/20 pb-2">
+              <h2 className="text-base sm:text-lg font-black text-rhr-dark flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5 text-rhr-burgundy" />
+                <span>Menu des Boissons — Bar, Bières, Vins &amp; Fraîcheurs</span>
+              </h2>
+              <span className="rounded-full bg-rose-100 px-3 py-0.5 text-xs font-extrabold text-rhr-burgundy">
+                {drinkItems.length} boisson(s)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {drinkItems.map((item) => {
+                const stock = getEffectiveStock(item);
+                const isZero = stock <= 0;
+                const inCart = cart.find((c) => c.itemId === item.id);
+
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "rounded-3xl border-2 p-4 flex items-center justify-between gap-4 transition",
+                      isZero
+                        ? "border-gray-200 bg-gray-100 opacity-70"
+                        : inCart
+                          ? "border-rhr-burgundy bg-white shadow-rhr"
+                          : "border-gray-200 bg-white shadow-card"
+                    )}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="h-14 w-14 rounded-2xl bg-rhr-surface border border-gray-200 flex items-center justify-center text-3xl shrink-0">
+                        {item.imageEmoji}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          {item.category}
+                        </span>
+                        <h3 className="font-black text-sm text-rhr-dark leading-snug">
+                          {item.name}
+                        </h3>
+                        <div className="text-sm font-black text-rhr-burgundy mt-1">
+                          {formatCFA(item.unitPrice)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isZero ? (
+                      <span className="inline-flex items-center gap-1 rounded-xl bg-red-100 border border-red-300 px-3 py-2 text-[10px] font-black uppercase text-rhr-burgundy shrink-0">
+                        <Ban className="h-3.5 w-3.5" />
+                        <span>Épuisé</span>
+                      </span>
+                    ) : inCart ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleDelta(item.id, -1)}
+                          className="h-9 w-9 rounded-xl border border-gray-300 bg-white flex items-center justify-center font-bold"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="w-6 text-center font-black text-sm text-rhr-dark">
+                          {inCart.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAdd(item)}
+                          className="h-9 w-9 rounded-xl bg-rhr-burgundy text-white flex items-center justify-center font-bold"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAdd(item)}
+                        className="rounded-2xl bg-rhr-dark hover:bg-rhr-burgundy px-4 py-2.5 text-xs font-extrabold text-white transition shrink-0 flex items-center gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5 text-rhr-gold" />
+                        <span>Choisir</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* =====================================================================

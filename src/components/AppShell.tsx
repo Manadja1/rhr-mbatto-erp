@@ -186,6 +186,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  // Si un client ouvre /qr-menu sur son téléphone (sans session employé),
+  // on affiche directement le terminal Menu Client plein écran (sans la barre latérale ERP)
+  if (!currentUser && pathname === "/qr-menu") {
+    return (
+      <div className="min-h-screen w-full overflow-y-auto bg-rhr-surface text-rhr-dark p-3 sm:p-6">
+        {children}
+      </div>
+    );
+  }
+
   // Filtrage strict des routes selon le rôle RBAC de l'utilisateur connecté
   const activeRole: UserRole = currentUser?.role || "CLIENT_QR";
   const allowedRoutes = RHR_ROUTES.filter((r) =>
