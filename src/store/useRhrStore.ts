@@ -245,6 +245,27 @@ export interface CeremonyBooking {
   createdAt: string;
 }
 
+export type DailyReportRowKey =
+  | "CHAMBRE_1"
+  | "CHAMBRE_2"
+  | "CHAMBRE_3"
+  | "CHAMBRE_4"
+  | "CHAMBRE_5"
+  | "LOCATION_SALLE"
+  | "RESTAURATION"
+  | "BAR"
+  | "AUTRES";
+
+export interface DailyCashSheetMeta {
+  dateIso: string; // YYYY-MM-DD (ex: "2026-04-17")
+  openingBalanceOverride?: number; // Solde à l'ouverture (A)
+  cashDepositAmount: number; // Versement espèces
+  bankDepositAmount: number; // Versement banque
+  managerSignatureName?: string; // Signature de la Gérante
+  rowObservations?: Partial<Record<DailyReportRowKey, string>>;
+  updatedAt: string;
+}
+
 export interface Transaction {
   id: string;
   reference: string;
@@ -259,7 +280,11 @@ export interface Transaction {
   vault: "CAISSE_ESPECES" | "CAISSE_MOBILE_MONEY";
   paymentMethod: PaymentMethod;
   expenseFundSource?: "CAISSE_DU_JOUR" | "FONDS_SEPARE";
-  amount: number;
+  amount: number; // Montant net encaissé ou décaissé
+  grossAmount?: number; // Montant brut avant remise (Reporting Journalier)
+  discountAmount?: number; // Remise éventuelle (Reporting Journalier)
+  dailyReportRow?: DailyReportRowKey; // Ligne exacte du Reporting Journalier
+  observation?: string; // Observation du Reporting Journalier
   description: string;
   receiptPhotoUrl?: string;
   relatedEntityId?: string;
@@ -374,7 +399,7 @@ export const RHR_ROUTES: NavRouteItem[] = [
     label: "Salle de Cérémonie",
     shortLabel: "Cérémonies",
     description: "Location 50 000 F (50 couverts), Couverts VIP & Devis A4",
-    allowedRoles: ["PROPRIETAIRE", "COMPTABLE"],
+    allowedRoles: ["PROPRIETAIRE", "COMPTABLE", "CAISSIERE_BAR_RESTO"],
   },
   {
     href: "/expenses",
@@ -1327,13 +1352,45 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     vault: "CAISSE_MOBILE_MONEY",
     paymentMethod: "WAVE",
     amount: 150000,
+    grossAmount: 150000,
+    discountAmount: 0,
+    dailyReportRow: "LOCATION_SALLE",
+    observation: "1er Acompte Mariage Famille N'Guessan & Koné",
     description: "1er Acompte Mariage Famille N'Guessan & Koné",
     relatedEntityId: "cer-01",
     createdBy: "usr-admin-01",
     createdByName: "M. Koffi — Administrateur RHR",
     createdAt: yesterday,
   },
+  {
+    id: "tx-doc-20260417-ch4",
+    reference: "HTL-20260417-01",
+    type: "ENCAISSEMENT",
+    pole: "HOTEL",
+    vault: "CAISSE_ESPECES",
+    paymentMethod: "ESPECES",
+    amount: 10000,
+    grossAmount: 10000,
+    discountAmount: 0,
+    dailyReportRow: "CHAMBRE_4",
+    observation: "Nuitée Chambre 4 (10 000 F)",
+    description: "1 Nuitée — Chambre 4 (Standard) — Reporting du 17/04/2026",
+    createdBy: "usr-hotel-03",
+    createdByName: "Yao Serge — Gérant Hôtel",
+    createdAt: "2026-04-17T12:00:00.000Z",
+  },
 ];
+
+export const INITIAL_DAILY_CASH_METAS: Record<string, DailyCashSheetMeta> = {
+  "2026-04-17": {
+    dateIso: "2026-04-17",
+    openingBalanceOverride: 91000,
+    cashDepositAmount: 0,
+    bankDepositAmount: 0,
+    managerSignatureName: "La Gérante RHR M'Batto",
+    updatedAt: "2026-04-17T20:00:00.000Z",
+  },
+};
 
 export const INITIAL_FIXED_COSTS: FixedCost[] = [
   {
@@ -1489,6 +1546,7 @@ interface RhrStoreState {
   transactions: Transaction[];
   cashClosures: CashClosure[];
   fixedCosts: FixedCost[];
+  dailyCashMetas: Record<string, DailyCashSheetMeta>;
 
   // Actions Authentification & Lock Screen
   loginWithEmail: (
@@ -1746,7 +1804,7 @@ interface RhrStoreState {
 
   setItemStockZeroDemo: (itemId: string) => void;
 
-  // Actions Sprint 4 : Salle de Cérémonie, Clôture de Caisse & Charges Fixes
+  // Actions Sprint 4 : Salle de Cérémonie, Clôture de Caisse, Charges Fixes & Reporting Journalier (Depuis Janv. 2026)
   createCeremonyBooking: (input: {
     clientName: string;
     clientPhone: string;
@@ -1756,8 +1814,10 @@ interface RhrStoreState {
     extraVipCovers: number;
     customCateringLines: CeremonyCustomLine[];
     customBeverageLines: CeremonyCustomLine[];
+    discountAmount?: number;
     initialDepositAmount: number;
     initialDepositMethod: PaymentMethod;
+    operationDateIso?: string;
     notes?: string;
   }) => CeremonyBooking;
 
@@ -1765,8 +1825,30 @@ interface RhrStoreState {
     ceremonyId: string;
     amount: number;
     method: PaymentMethod;
+    operationDateIso?: string;
     note?: string;
   }) => CeremonyBooking | null;
+
+  recordGeneralDailyOperation: (input: {
+    operationDateIso: string; // ex: "2026-04-17"
+    category: DailyReportRowKey | "DEPENSE";
+    grossAmount: number;
+    discountAmount?: number;
+    paymentMethod: PaymentMethod;
+    observation?: string;
+    clientName?: string;
+    eventType?: CeremonyBooking["eventType"];
+    expenseFundSource?: "CAISSE_DU_JOUR" | "FONDS_SEPARE";
+  }) => { success: boolean; transaction: Transaction };
+
+  updateDailyCashSheetMeta: (input: {
+    dateIso: string;
+    openingBalanceOverride?: number;
+    cashDepositAmount?: number;
+    bankDepositAmount?: number;
+    managerSignatureName?: string;
+    rowObservations?: Partial<Record<DailyReportRowKey, string>>;
+  }) => DailyCashSheetMeta;
 
   submitCashClosure: (input: {
     pole: "HOTEL" | "BAR_RESTO" | "GLOBAL";
@@ -1813,6 +1895,7 @@ export const useRhrStore = create<RhrStoreState>()(
       transactions: INITIAL_TRANSACTIONS,
       cashClosures: INITIAL_CLOSURES,
       fixedCosts: INITIAL_FIXED_COSTS,
+      dailyCashMetas: INITIAL_DAILY_CASH_METAS,
 
       loginWithEmail: (email, password, targetRole) => {
         const cleanEmail = email.trim().toLowerCase();
@@ -2307,12 +2390,12 @@ export const useRhrStore = create<RhrStoreState>()(
           waitresses: prev.waitresses.map((w) =>
             w.id === waitressId
               ? {
-                  ...w,
-                  ...updates,
-                  name: updates.name !== undefined ? updates.name.trim() : w.name,
-                  phone:
-                    updates.phone !== undefined ? updates.phone.trim() : w.phone,
-                }
+                ...w,
+                ...updates,
+                name: updates.name !== undefined ? updates.name.trim() : w.name,
+                phone:
+                  updates.phone !== undefined ? updates.phone.trim() : w.phone,
+              }
               : w
           ),
         }));
@@ -2582,8 +2665,8 @@ export const useRhrStore = create<RhrStoreState>()(
         const discountLabelSuffix =
           cleanDiscount > 0
             ? ` — Réduction accordée : -${cleanDiscount.toLocaleString(
-                "fr-FR"
-              )} F${cleanDiscountReason ? ` (${cleanDiscountReason})` : ""}`
+              "fr-FR"
+            )} F${cleanDiscountReason ? ` (${cleanDiscountReason})` : ""}`
             : "";
 
         const newFolioLines: RoomFolioItem[] = [
@@ -2594,11 +2677,9 @@ export const useRhrStore = create<RhrStoreState>()(
             description:
               input.stayType === "PASSAGE_3H"
                 ? `Forfait Passage 3 Heures — Chambre ${room.roomNumber}`
-                : `${
-                    input.stayType === "RESERVATION" ? "Réservation" : "Séjour"
-                  } ${nights} Nuitée(s) — Chambre ${room.roomNumber} (${
-                    room.category
-                  })${discountLabelSuffix}`,
+                : `${input.stayType === "RESERVATION" ? "Réservation" : "Séjour"
+                } ${nights} Nuitée(s) — Chambre ${room.roomNumber} (${room.category
+                })${discountLabelSuffix}`,
             category: "HEBERGEMENT",
             amount: totalAccommodationCost,
             isPaid: deposit >= totalAccommodationCost,
@@ -2614,11 +2695,10 @@ export const useRhrStore = create<RhrStoreState>()(
             id: `folio-dep-${Date.now() + 1}`,
             stayId,
             roomNumber: room.roomNumber,
-            description: `${
-              input.stayType === "PASSAGE_3H"
+            description: `${input.stayType === "PASSAGE_3H"
                 ? "Règlement Passage 3H"
                 : "Acompte / Règlement Hébergement"
-            } (${input.depositMethod.replace(/_/g, " ")})`,
+              } (${input.depositMethod.replace(/_/g, " ")})`,
             category: "ACOMPTE",
             amount: -deposit,
             isPaid: true,
@@ -2639,17 +2719,22 @@ export const useRhrStore = create<RhrStoreState>()(
                 : "CAISSE_MOBILE_MONEY",
             paymentMethod: input.depositMethod,
             amount: deposit,
-            description: `${
-              input.stayType === "RESERVATION"
+            grossAmount: grossAccommodationCost,
+            discountAmount: cleanDiscount,
+            dailyReportRow: `CHAMBRE_${room.roomNumber}` as DailyReportRowKey,
+            observation:
+              cleanDiscountReason ||
+              input.notes?.trim() ||
+              `${input.guestName.trim()} (${input.stayType === "PASSAGE_3H" ? "Passage 3H" : `${nights} nuit(s)`})`,
+            description: `${input.stayType === "RESERVATION"
                 ? "Acompte Réservation"
                 : input.stayType === "PASSAGE_3H"
-                ? "Encaissement Passage 3H"
-                : "Encaissement Check-In Nuitée"
-            } Chambre ${room.roomNumber} — ${input.guestName.trim()}${
-              cleanDiscount > 0
+                  ? "Encaissement Passage 3H"
+                  : "Encaissement Check-In Nuitée"
+              } Chambre ${room.roomNumber} — ${input.guestName.trim()}${cleanDiscount > 0
                 ? ` (Réduction -${cleanDiscount.toLocaleString("fr-FR")} F)`
                 : ""
-            }`,
+              }`,
             relatedEntityId: stayId,
             createdBy: user.id,
             createdByName: user.fullName,
@@ -3152,10 +3237,10 @@ export const useRhrStore = create<RhrStoreState>()(
           folioItems: prev.folioItems.map((f) =>
             f.stayId === stay.id && f.category === "HEBERGEMENT"
               ? {
-                  ...f,
-                  amount: netCost,
-                  description: updatedDescription,
-                }
+                ...f,
+                amount: netCost,
+                description: updatedDescription,
+              }
               : f
           ),
         }));
@@ -3183,10 +3268,10 @@ export const useRhrStore = create<RhrStoreState>()(
 
         const parsedDate = input.operationDateIso
           ? new Date(
-              input.operationDateIso.includes("T")
-                ? input.operationDateIso
-                : `${input.operationDateIso}T12:00:00`
-            )
+            input.operationDateIso.includes("T")
+              ? input.operationDateIso
+              : `${input.operationDateIso}T12:00:00`
+          )
           : new Date();
         const dateIso = isNaN(parsedDate.getTime())
           ? new Date().toISOString()
@@ -3211,9 +3296,9 @@ export const useRhrStore = create<RhrStoreState>()(
           const cleanDiscount =
             room.roomNumber <= 3 && stayType !== "PASSAGE_3H"
               ? Math.min(
-                  grossCost,
-                  Math.max(0, Math.round(input.discountAmount || 0))
-                )
+                grossCost,
+                Math.max(0, Math.round(input.discountAmount || 0))
+              )
               : 0;
           const netAmount =
             typeof input.amount === "number" && input.amount > 0
@@ -3282,6 +3367,13 @@ export const useRhrStore = create<RhrStoreState>()(
                 : "CAISSE_MOBILE_MONEY",
             paymentMethod: input.paymentMethod,
             amount: netAmount,
+            grossAmount: grossCost,
+            discountAmount: cleanDiscount,
+            dailyReportRow: `CHAMBRE_${room.roomNumber}` as DailyReportRowKey,
+            observation:
+              discountReason ||
+              input.description?.trim() ||
+              `${guestName} (${stayType === "PASSAGE_3H" ? "Passage 3H" : `${nights} nuit(s)`})`,
             description: `${fullDesc}${input.description?.trim() ? ` · ${input.description.trim()}` : ""}`,
             relatedEntityId: stayId,
             createdBy: gerantUser.id,
@@ -3393,13 +3485,13 @@ export const useRhrStore = create<RhrStoreState>()(
           transactions: prev.transactions.filter((t) => t.id !== transactionId),
           stays: relatedStayId
             ? prev.stays.filter(
-                (s) => !(s.id === relatedStayId && s.id.startsWith("stay-hist-"))
-              )
+              (s) => !(s.id === relatedStayId && s.id.startsWith("stay-hist-"))
+            )
             : prev.stays,
           folioItems: relatedStayId
             ? prev.folioItems.filter(
-                (f) => !(f.stayId === relatedStayId && f.id.startsWith("fol-hist-"))
-              )
+              (f) => !(f.stayId === relatedStayId && f.id.startsWith("fol-hist-"))
+            )
             : prev.folioItems,
         }));
 
@@ -4020,8 +4112,17 @@ export const useRhrStore = create<RhrStoreState>()(
 
       createCeremonyBooking: (input) => {
         const state = get();
-        const user = state.currentUser || state.users[0];
-        const nowIso = new Date().toISOString();
+        const user = state.currentUser || state.users[3] || state.users[0];
+        const parsedOpDate = input.operationDateIso
+          ? new Date(
+            input.operationDateIso.includes("T")
+              ? input.operationDateIso
+              : `${input.operationDateIso}T12:00:00`
+          )
+          : new Date();
+        const nowIso = isNaN(parsedOpDate.getTime())
+          ? new Date().toISOString()
+          : parsedOpDate.toISOString();
 
         const baseRentalFee = 50000; // Loi absolue SPEC.md : 50 000 F (inclut 50 couverts)
         const ordCovers = Math.max(0, Math.round(input.extraOrdinaryCovers));
@@ -4037,12 +4138,18 @@ export const useRhrStore = create<RhrStoreState>()(
           0
         );
 
-        const totalAmount =
+        const grossTotalAmount =
           baseRentalFee +
           ordCovers * 1000 +
           vipCovers * 1500 +
           cateringTotal +
           beverageTotal;
+
+        const cleanDiscount = Math.min(
+          grossTotalAmount,
+          Math.max(0, Math.round(input.discountAmount || 0))
+        );
+        const totalAmount = Math.max(0, grossTotalAmount - cleanDiscount);
 
         const initDeposit = Math.max(0, Math.round(input.initialDepositAmount));
         const reference = `DEV-RHR-2026-0${state.ceremonies.length + 1}`;
@@ -4093,7 +4200,7 @@ export const useRhrStore = create<RhrStoreState>()(
 
         const newTransactions: Transaction[] = [];
         if (initDeposit > 0) {
-          newTransactions.push({
+          const txObj: Transaction = {
             id: `tx-cer-${Date.now()}`,
             reference: `ENC-CER-0${state.transactions.length + 1}`,
             type: "ENCAISSEMENT",
@@ -4104,11 +4211,33 @@ export const useRhrStore = create<RhrStoreState>()(
                 : "CAISSE_MOBILE_MONEY",
             paymentMethod: input.initialDepositMethod,
             amount: initDeposit,
-            description: `Acompte Cérémonie ${reference} (${input.eventType}) — ${booking.clientName}`,
+            grossAmount: initDeposit + cleanDiscount,
+            discountAmount: cleanDiscount,
+            dailyReportRow: "LOCATION_SALLE",
+            observation:
+              input.notes?.trim() ||
+              `${input.eventType} — ${booking.clientName} (${guestsCount} couverts)`,
+            description: `Location Salle / Cérémonie ${reference} (${input.eventType}) — ${booking.clientName}${cleanDiscount > 0 ? ` (Remise -${cleanDiscount.toLocaleString("fr-FR")} F)` : ""}`,
             relatedEntityId: cerId,
             createdBy: user.id,
             createdByName: user.fullName,
             createdAt: nowIso,
+          };
+          newTransactions.push(txObj);
+
+          get().enqueueSyncOperation("transactions", "INSERT", {
+            id: txObj.id,
+            reference: txObj.reference,
+            type: txObj.type,
+            pole: txObj.pole,
+            vault: txObj.vault,
+            paymentMethod: txObj.paymentMethod,
+            amount: txObj.amount,
+            description: txObj.description,
+            relatedEntityId: txObj.relatedEntityId,
+            createdBy: txObj.createdBy,
+            createdByName: txObj.createdByName,
+            createdAt: txObj.createdAt,
           });
         }
 
@@ -4128,13 +4257,22 @@ export const useRhrStore = create<RhrStoreState>()(
         return booking;
       },
 
-      addCeremonyDeposit: ({ ceremonyId, amount, method, note }) => {
+      addCeremonyDeposit: ({ ceremonyId, amount, method, operationDateIso, note }) => {
         const state = get();
-        const user = state.currentUser || state.users[0];
+        const user = state.currentUser || state.users[3] || state.users[0];
         const target = state.ceremonies.find((c) => c.id === ceremonyId);
         if (!target || amount <= 0) return null;
 
-        const nowIso = new Date().toISOString();
+        const parsedDate = operationDateIso
+          ? new Date(
+            operationDateIso.includes("T")
+              ? operationDateIso
+              : `${operationDateIso}T12:00:00`
+          )
+          : new Date();
+        const nowIso = isNaN(parsedDate.getTime())
+          ? new Date().toISOString()
+          : parsedDate.toISOString();
         const cleanAmount = Math.round(amount);
 
         const newDep: CeremonyDeposit = {
@@ -4166,6 +4304,12 @@ export const useRhrStore = create<RhrStoreState>()(
             method === "ESPECES" ? "CAISSE_ESPECES" : "CAISSE_MOBILE_MONEY",
           paymentMethod: method,
           amount: cleanAmount,
+          grossAmount: cleanAmount,
+          discountAmount: 0,
+          dailyReportRow: "LOCATION_SALLE",
+          observation:
+            note?.trim() ||
+            `Versement ${target.eventType} — ${target.clientName}`,
           description: `Versement Acompte Cérémonie ${target.reference} — ${target.clientName}`,
           relatedEntityId: target.id,
           createdBy: user.id,
@@ -4186,7 +4330,264 @@ export const useRhrStore = create<RhrStoreState>()(
           status: nextStatus,
         });
 
+        get().enqueueSyncOperation("transactions", "INSERT", {
+          id: newTx.id,
+          reference: newTx.reference,
+          type: newTx.type,
+          pole: newTx.pole,
+          vault: newTx.vault,
+          paymentMethod: newTx.paymentMethod,
+          amount: newTx.amount,
+          description: newTx.description,
+          relatedEntityId: newTx.relatedEntityId,
+          createdBy: newTx.createdBy,
+          createdByName: newTx.createdByName,
+          createdAt: newTx.createdAt,
+        });
+
         return updatedBooking;
+      },
+
+      recordGeneralDailyOperation: (input) => {
+        const state = get();
+        const user =
+          state.currentUser ||
+          state.users.find((u) => u.role === "CAISSIERE_BAR_RESTO") ||
+          state.users[0];
+
+        const parsedDate = input.operationDateIso
+          ? new Date(
+            input.operationDateIso.includes("T")
+              ? input.operationDateIso
+              : `${input.operationDateIso}T12:00:00`
+          )
+          : new Date();
+        const dateIso = isNaN(parsedDate.getTime())
+          ? new Date().toISOString()
+          : parsedDate.toISOString();
+
+        const cleanGross = Math.max(0, Math.round(input.grossAmount || 0));
+        const cleanDiscount = Math.min(
+          cleanGross,
+          Math.max(0, Math.round(input.discountAmount || 0))
+        );
+        const netAmount = Math.max(0, cleanGross - cleanDiscount);
+        const obs = input.observation?.trim() || "";
+
+        if (input.category === "DEPENSE") {
+          const tx: Transaction = {
+            id: `tx-day-dep-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            reference: `DEP-${String(state.transactions.length + 1).padStart(3, "0")}`,
+            type: "DEPENSE",
+            pole: "MARCHE_CUISINE",
+            vault:
+              input.paymentMethod === "ESPECES"
+                ? "CAISSE_ESPECES"
+                : "CAISSE_MOBILE_MONEY",
+            paymentMethod: input.paymentMethod,
+            expenseFundSource: input.expenseFundSource || "CAISSE_DU_JOUR",
+            amount: Math.max(1, cleanGross),
+            grossAmount: Math.max(1, cleanGross),
+            discountAmount: 0,
+            observation: obs,
+            description: obs || "Dépense de la journée",
+            createdBy: user.id,
+            createdByName: user.fullName,
+            createdAt: dateIso,
+          };
+
+          set((prev) => ({
+            transactions: [tx, ...prev.transactions],
+          }));
+
+          get().enqueueSyncOperation("transactions", "INSERT", {
+            id: tx.id,
+            reference: tx.reference,
+            type: tx.type,
+            pole: tx.pole,
+            vault: tx.vault,
+            paymentMethod: tx.paymentMethod,
+            amount: tx.amount,
+            fundSource: tx.expenseFundSource,
+            description: tx.description,
+            createdBy: tx.createdBy,
+            createdByName: tx.createdByName,
+            createdAt: tx.createdAt,
+          });
+
+          return { success: true, transaction: tx };
+        }
+
+        // Si c'est une Chambre (CHAMBRE_1 .. CHAMBRE_5)
+        if (input.category.startsWith("CHAMBRE_")) {
+          const roomNum = Number(input.category.replace("CHAMBRE_", "")) || 1;
+          const res = get().recordHistoricalHotelOperation({
+            operationType: "SEJOUR_CHAMBRE",
+            operationDateIso: input.operationDateIso,
+            roomNumber: roomNum,
+            stayType: cleanGross === 5000 && roomNum >= 4 ? "PASSAGE_3H" : "NUITEE",
+            nightsCount: 1,
+            guestName: input.clientName || `Client Chambre ${roomNum}`,
+            discountAmount: cleanDiscount,
+            discountReason: obs,
+            amount: netAmount,
+            paymentMethod: input.paymentMethod,
+            description: obs,
+          });
+          if (res.transaction) {
+            return { success: true, transaction: res.transaction };
+          }
+        }
+
+        // Location salle, Restauration, Bar, ou Autres
+        const rowLabels: Record<DailyReportRowKey, string> = {
+          CHAMBRE_1: "Chambre 1",
+          CHAMBRE_2: "Chambre 2",
+          CHAMBRE_3: "Chambre 3",
+          CHAMBRE_4: "Chambre 4",
+          CHAMBRE_5: "Chambre 5",
+          LOCATION_SALLE: "Location salle de cérémonie",
+          RESTAURATION: "Restauration",
+          BAR: "Bar",
+          AUTRES: "Autres recettes",
+        };
+
+        const pole: Transaction["pole"] =
+          input.category === "LOCATION_SALLE" ? "CEREMONIE" : "BAR_RESTO";
+
+        let relatedCeremonyId: string | undefined = undefined;
+        let newCeremonyBooking: CeremonyBooking | null = null;
+
+        if (input.category === "LOCATION_SALLE") {
+          const cerId = `cer-hist-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          relatedCeremonyId = cerId;
+          const cName = input.clientName?.trim() || "Client Location Salle RHR";
+          const evType = input.eventType || "MARIAGE";
+          newCeremonyBooking = {
+            id: cerId,
+            reference: `SAL-${String(state.ceremonies.length + 1).padStart(3, "0")}`,
+            clientName: cName,
+            clientPhone: "+225 07 00 00 00 00",
+            eventType: evType,
+            eventDate: input.operationDateIso.slice(0, 10),
+            guestsCount: 50,
+            baseRentalFee: cleanGross || 50000,
+            extraOrdinaryCovers: 0,
+            extraVipCovers: 0,
+            customCateringLines: [],
+            customBeverageLines: [],
+            totalAmount: netAmount,
+            deposits: [
+              {
+                id: `dep-${cerId}`,
+                amount: netAmount,
+                method: input.paymentMethod,
+                paidAt: dateIso,
+                receivedBy: user.fullName,
+                note: obs || "Règlement Location Salle",
+              },
+            ],
+            totalPaid: netAmount,
+            status: "SOLDE",
+            notes: obs || undefined,
+            createdBy: user.id,
+            createdAt: dateIso,
+          };
+        }
+
+        const labelBase = rowLabels[input.category as DailyReportRowKey] || "Recette";
+        const fullDesc = `${labelBase}${input.clientName?.trim() ? ` (${input.clientName.trim()})` : ""}${cleanDiscount > 0 ? ` — Remise : -${cleanDiscount.toLocaleString("fr-FR")} F` : ""}${obs ? ` · ${obs}` : ""}`;
+
+        const tx: Transaction = {
+          id: `tx-day-rec-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          reference: `REC-${String(state.transactions.length + 1).padStart(3, "0")}`,
+          type: "ENCAISSEMENT",
+          pole,
+          vault:
+            input.paymentMethod === "ESPECES"
+              ? "CAISSE_ESPECES"
+              : "CAISSE_MOBILE_MONEY",
+          paymentMethod: input.paymentMethod,
+          amount: netAmount,
+          grossAmount: cleanGross,
+          discountAmount: cleanDiscount,
+          dailyReportRow: input.category as DailyReportRowKey,
+          observation: obs,
+          description: fullDesc,
+          relatedEntityId: relatedCeremonyId,
+          createdBy: user.id,
+          createdByName: user.fullName,
+          createdAt: dateIso,
+        };
+
+        set((prev) => ({
+          ceremonies: newCeremonyBooking
+            ? [newCeremonyBooking, ...prev.ceremonies]
+            : prev.ceremonies,
+          transactions: [tx, ...prev.transactions],
+        }));
+
+        get().enqueueSyncOperation("transactions", "INSERT", {
+          id: tx.id,
+          reference: tx.reference,
+          type: tx.type,
+          pole: tx.pole,
+          vault: tx.vault,
+          paymentMethod: tx.paymentMethod,
+          amount: tx.amount,
+          description: tx.description,
+          relatedEntityId: tx.relatedEntityId,
+          createdBy: tx.createdBy,
+          createdByName: tx.createdByName,
+          createdAt: tx.createdAt,
+        });
+
+        return { success: true, transaction: tx };
+      },
+
+      updateDailyCashSheetMeta: (input) => {
+        const cleanDate = input.dateIso.slice(0, 10);
+        const existing = get().dailyCashMetas[cleanDate] || {
+          dateIso: cleanDate,
+          cashDepositAmount: 0,
+          bankDepositAmount: 0,
+          managerSignatureName: "La Gérante RHR M'Batto",
+          updatedAt: new Date().toISOString(),
+        };
+
+        const updated: DailyCashSheetMeta = {
+          ...existing,
+          dateIso: cleanDate,
+          openingBalanceOverride:
+            input.openingBalanceOverride !== undefined
+              ? input.openingBalanceOverride
+              : existing.openingBalanceOverride,
+          cashDepositAmount:
+            input.cashDepositAmount !== undefined
+              ? Math.max(0, Math.round(input.cashDepositAmount))
+              : existing.cashDepositAmount,
+          bankDepositAmount:
+            input.bankDepositAmount !== undefined
+              ? Math.max(0, Math.round(input.bankDepositAmount))
+              : existing.bankDepositAmount,
+          managerSignatureName:
+            input.managerSignatureName !== undefined
+              ? input.managerSignatureName
+              : existing.managerSignatureName,
+          rowObservations: input.rowObservations
+            ? { ...(existing.rowObservations || {}), ...input.rowObservations }
+            : existing.rowObservations,
+          updatedAt: new Date().toISOString(),
+        };
+
+        set((prev) => ({
+          dailyCashMetas: {
+            ...prev.dailyCashMetas,
+            [cleanDate]: updated,
+          },
+        }));
+
+        return updated;
       },
 
       submitCashClosure: (input) => {
@@ -4328,6 +4729,7 @@ export const useRhrStore = create<RhrStoreState>()(
         transactions: state.transactions,
         cashClosures: state.cashClosures,
         fixedCosts: state.fixedCosts,
+        dailyCashMetas: state.dailyCashMetas,
       }),
     }
   )

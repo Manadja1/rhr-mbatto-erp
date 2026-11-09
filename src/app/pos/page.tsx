@@ -30,9 +30,12 @@ import {
   InventoryItem,
   PosOrderItem,
   PosOrder,
+  CeremonyBooking,
+  PaymentMethod,
 } from "@/store/useRhrStore";
 import { formatCFA, formatDateTime, cn } from "@/lib/utils";
 import { QrCodeCardsGeneratorModal } from "@/components/QrCodeCardsGeneratorModal";
+import { DailyReportingSheet } from "@/components/DailyReportingSheet";
 
 type PosFilterCategory =
   | "TOUS"
@@ -49,16 +52,48 @@ export default function PosPage() {
     rooms,
     stays,
     posOrders,
+    ceremonies,
     createPosOrder,
     processIncomingQrOrder,
     cancelQrOrder,
     ingestRemoteQrOrders,
+    createCeremonyBooking,
+    addCeremonyDeposit,
   } = useRhrStore();
 
-  // Onglet actif : Terminal POS, Commandes QR Entrantes, ou Rendement Serveuses
+  // Onglet actif : Terminal POS, Commandes QR Entrantes, Salle de Cérémonie, Reporting Journalier ou Rendement Serveuses
   const [activeView, setActiveView] = useState<
-    "TERMINAL" | "QR_INCOMING" | "WAITRESS_STATS"
+    | "TERMINAL"
+    | "QR_INCOMING"
+    | "CEREMONIE_HALL"
+    | "DAILY_REPORTING"
+    | "WAITRESS_STATS"
   >("TERMINAL");
+
+  // Formulaire Location Salle de Cérémonie depuis la Caisse Bar/Resto (depuis Janvier 2026)
+  const [ceremonyDate, setCeremonyDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [ceremonyEventType, setCeremonyEventType] = useState<
+    CeremonyBooking["eventType"]
+  >("MARIAGE");
+  const [ceremonyClientName, setCeremonyClientName] = useState("");
+  const [ceremonyClientPhone, setCeremonyClientPhone] = useState("");
+  const [ceremonyCovers, setCeremonyCovers] = useState<number>(50);
+  const [ceremonyExtraCoverUnitPrice, setCeremonyExtraCoverUnitPrice] =
+    useState<number>(1000);
+  const [ceremonyDiscount, setCeremonyDiscount] = useState<number>(0);
+  const [ceremonyDeposit, setCeremonyDeposit] = useState<number>(50000);
+  const [ceremonyPaymentMethod, setCeremonyPaymentMethod] =
+    useState<PaymentMethod>("ESPECES");
+  const [ceremonyNotes, setCeremonyNotes] = useState("");
+  const [ceremonyFeedback, setCeremonyFeedback] = useState<string | null>(null);
+  const [ceremonyDepositAmountMap, setCeremonyDepositAmountMap] = useState<
+    Record<string, number>
+  >({});
+  const [ceremonyDepositMethodMap, setCeremonyDepositMethodMap] = useState<
+    Record<string, PaymentMethod>
+  >({});
 
   // Filtre rapide produits & recherche
   const [selectedCategory, setSelectedCategory] =
@@ -425,7 +460,37 @@ export default function PosPage() {
             <span>Commandes QR Entrantes ({incomingQrOrders.length})</span>
           </button>
 
-          {/* Onglet 3 : Rendement des Serveuses */}
+          {/* Onglet 3 : Location Salle de Cérémonie (au poste Caissière Bar/Resto) */}
+          <button
+            type="button"
+            onClick={() => setActiveView("CEREMONIE_HALL")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition",
+              activeView === "CEREMONIE_HALL"
+                ? "bg-rhr-gold text-rhr-dark shadow"
+                : "bg-white/10 text-gray-200 hover:bg-white/20"
+            )}
+          >
+            <Sparkles className="h-4 w-4 text-rhr-gold" />
+            <span>Location Salle Cérémonie ({ceremonies.length})</span>
+          </button>
+
+          {/* Onglet 4 : Saisie Opérations (Depuis Janv. 2026) & Reporting Journalier */}
+          <button
+            type="button"
+            onClick={() => setActiveView("DAILY_REPORTING")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition",
+              activeView === "DAILY_REPORTING"
+                ? "bg-emerald-600 text-white shadow"
+                : "bg-white/10 text-gray-200 hover:bg-white/20"
+            )}
+          >
+            <Printer className="h-4 w-4" />
+            <span>Opérations &amp; Reporting Journalier</span>
+          </button>
+
+          {/* Onglet 5 : Rendement des Serveuses */}
           <button
             type="button"
             onClick={() => setActiveView("WAITRESS_STATS")}
@@ -1344,6 +1409,409 @@ export default function PosPage() {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          VUE 4 : LOCATION SALLE DE CÉRÉMONIE AU POSTE CAISSIÈRE BAR/RESTO
+      ===================================================================== */}
+      {activeView === "CEREMONIE_HALL" && (
+        <div className="space-y-6">
+          <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-rhr-burgundy">
+                  <Sparkles className="h-4 w-4" />
+                  Location de la Salle de Cérémonie — Caisse Bar / Resto
+                </span>
+                <h2 className="text-xl font-black text-rhr-dark mt-0.5">
+                  Enregistrer une Location de Salle ou un Acompte (Depuis Janvier 2026)
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Forfait de base : 50 000 FCFA (jusqu&apos;à 50 couverts inclus) +
+                  supplément couverts + remise éventuelle. Alimente automatiquement
+                  la ligne <strong>Location salle</strong> du Reporting Journalier.
+                </p>
+              </div>
+              <Link
+                href="/ceremonies"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rhr-dark hover:bg-rhr-burgundy px-4 py-2.5 text-xs font-extrabold text-white transition"
+              >
+                <Sparkles className="h-4 w-4 text-rhr-gold" />
+                <span>Ouvrir le Module Complet Cérémonies</span>
+              </Link>
+            </div>
+
+            {ceremonyFeedback && (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-bold text-emerald-900 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  {ceremonyFeedback}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCeremonyFeedback(null)}
+                  className="text-emerald-700 hover:underline"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!ceremonyClientName.trim()) {
+                  setPosError("Veuillez saisir le nom du client / organisateur.");
+                  return;
+                }
+                const extraCovers = Math.max(0, ceremonyCovers - 50);
+                const grossQuote = 50000 + extraCovers * ceremonyExtraCoverUnitPrice;
+                const safeDiscount = Math.max(
+                  0,
+                  Math.min(ceremonyDiscount || 0, grossQuote)
+                );
+                const depositToRecord = Math.max(0, ceremonyDeposit || 0);
+
+                createCeremonyBooking({
+                  eventDate: ceremonyDate,
+                  eventType: ceremonyEventType,
+                  clientName: ceremonyClientName.trim(),
+                  clientPhone: ceremonyClientPhone.trim() || "Non renseigné",
+                  extraOrdinaryCovers: extraCovers,
+                  extraVipCovers: 0,
+                  customCateringLines: [],
+                  customBeverageLines: [],
+                  discountAmount: safeDiscount,
+                  initialDepositAmount: depositToRecord,
+                  initialDepositMethod: ceremonyPaymentMethod,
+                  operationDateIso: `${ceremonyDate}T12:00:00.000Z`,
+                  notes:
+                    ceremonyNotes.trim() ||
+                    `Location salle (${ceremonyEventType}) — ${ceremonyClientName.trim()}`,
+                });
+
+                setCeremonyFeedback(
+                  `Location Salle enregistrée pour ${ceremonyClientName.trim()} (${ceremonyDate}) — Net: ${formatCFA(
+                    grossQuote - safeDiscount
+                  )} | Encaissé: ${formatCFA(depositToRecord)}.`
+                );
+                setCeremonyClientName("");
+                setCeremonyClientPhone("");
+                setCeremonyNotes("");
+              }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
+            >
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Date de l&apos;opération / Cérémonie
+                </label>
+                <input
+                  type="date"
+                  min="2026-01-01"
+                  value={ceremonyDate}
+                  onChange={(e) => setCeremonyDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-rhr-dark"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Type d&apos;Événement
+                </label>
+                <select
+                  value={ceremonyEventType}
+                  onChange={(e) =>
+                    setCeremonyEventType(
+                      e.target.value as CeremonyBooking["eventType"]
+                    )
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-rhr-dark"
+                >
+                  <option value="MARIAGE">Mariage</option>
+                  <option value="DOT">Dot / Cérémonie Coutumière</option>
+                  <option value="BAPTEME">Baptême</option>
+                  <option value="ANNIVERSAIRE">Anniversaire</option>
+                  <option value="CONFERENCE">Conférence / Séminaire</option>
+                  <option value="AUTRE">Autre Événement</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Nom du Client / Organisateur
+                </label>
+                <input
+                  type="text"
+                  value={ceremonyClientName}
+                  onChange={(e) => setCeremonyClientName(e.target.value)}
+                  placeholder="Ex: Famille Kouassi / ONG..."
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Téléphone Client
+                </label>
+                <input
+                  type="text"
+                  value={ceremonyClientPhone}
+                  onChange={(e) => setCeremonyClientPhone(e.target.value)}
+                  placeholder="Ex: 07 00 00 00 00"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Nombre de Couverts (50 inclus = 50 000 F)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={ceremonyCovers}
+                  onChange={(e) =>
+                    setCeremonyCovers(Math.max(1, Number(e.target.value) || 50))
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-rhr-dark"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-amber-800 mb-1">
+                  Remise accordée (FCFA)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={ceremonyDiscount || ""}
+                  onChange={(e) =>
+                    setCeremonyDiscount(Math.max(0, Number(e.target.value) || 0))
+                  }
+                  placeholder="0"
+                  className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-2 text-xs font-bold text-amber-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-emerald-800 mb-1">
+                  Montant Encaissé Immédiatement (FCFA)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={ceremonyDeposit}
+                  onChange={(e) =>
+                    setCeremonyDeposit(Math.max(0, Number(e.target.value) || 0))
+                  }
+                  className="w-full rounded-xl border border-emerald-300 bg-emerald-50/50 px-3 py-2 text-xs font-black text-emerald-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Mode de Règlement &amp; Observation
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={ceremonyPaymentMethod}
+                    onChange={(e) =>
+                      setCeremonyPaymentMethod(e.target.value as PaymentMethod)
+                    }
+                    className="rounded-xl border border-gray-300 px-2.5 py-2 text-xs font-bold text-rhr-dark"
+                  >
+                    <option value="ESPECES">Espèces</option>
+                    <option value="WAVE">Wave</option>
+                    <option value="ORANGE_MONEY">Orange Money</option>
+                    <option value="MTN_MOMO">MTN MoMo</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={ceremonyNotes}
+                    onChange={(e) => setCeremonyNotes(e.target.value)}
+                    placeholder="Observation..."
+                    className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                <div className="text-xs text-gray-600">
+                  Devis Brut :{" "}
+                  <strong className="text-rhr-dark">
+                    {formatCFA(
+                      50000 +
+                      Math.max(0, ceremonyCovers - 50) *
+                      ceremonyExtraCoverUnitPrice
+                    )}
+                  </strong>{" "}
+                  • Remise :{" "}
+                  <strong className="text-amber-700">
+                    -{formatCFA(ceremonyDiscount || 0)}
+                  </strong>{" "}
+                  • Net à payer :{" "}
+                  <strong className="text-emerald-700 font-black">
+                    {formatCFA(
+                      Math.max(
+                        0,
+                        50000 +
+                        Math.max(0, ceremonyCovers - 50) *
+                        ceremonyExtraCoverUnitPrice -
+                        (ceremonyDiscount || 0)
+                      )
+                    )}
+                  </strong>
+                </div>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-5 py-2.5 text-xs font-black text-white shadow-rhr transition"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Enregistrer la Location de Salle en Caisse</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Liste des dossiers Salle de Cérémonie et encaissement de solde/acompte */}
+          <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-4">
+            <h3 className="text-base font-black text-rhr-dark">
+              Dossiers de Location Salle de Cérémonie ({ceremonies.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ceremonies.map((cer) => {
+                const remainingBalance = Math.max(
+                  0,
+                  cer.totalAmount - cer.totalPaid
+                );
+                return (
+                  <div
+                    key={cer.id}
+                    className="rounded-2xl border border-gray-200 bg-rhr-surface p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="inline-block rounded-md bg-rhr-burgundy/10 px-2 py-0.5 text-[10px] font-black text-rhr-burgundy">
+                          {cer.eventType} • Date : {cer.eventDate}
+                        </span>
+                        <h4 className="text-sm font-black text-rhr-dark mt-1">
+                          {cer.clientName} ({cer.clientPhone})
+                        </h4>
+                        <p className="text-[11px] text-gray-500">{cer.notes}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-[10px] font-black uppercase",
+                          cer.status === "SOLDE"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-900"
+                        )}
+                      >
+                        {cer.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-white p-2.5 border border-gray-200 text-xs">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">
+                          Total Devis
+                        </span>
+                        <strong className="font-black text-rhr-dark">
+                          {formatCFA(cer.totalAmount)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">
+                          Déjà Versé
+                        </span>
+                        <strong className="font-black text-emerald-700">
+                          {formatCFA(cer.totalPaid)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">
+                          Reste à Payer
+                        </span>
+                        <strong className="font-black text-rhr-burgundy">
+                          {formatCFA(remainingBalance)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {remainingBalance > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <input
+                          type="number"
+                          min={500}
+                          step={500}
+                          value={
+                            ceremonyDepositAmountMap[cer.id] ?? remainingBalance
+                          }
+                          onChange={(e) =>
+                            setCeremonyDepositAmountMap({
+                              ...ceremonyDepositAmountMap,
+                              [cer.id]: Number(e.target.value) || 0,
+                            })
+                          }
+                          className="w-28 rounded-xl border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold"
+                        />
+                        <select
+                          value={ceremonyDepositMethodMap[cer.id] || "ESPECES"}
+                          onChange={(e) =>
+                            setCeremonyDepositMethodMap({
+                              ...ceremonyDepositMethodMap,
+                              [cer.id]: e.target.value as PaymentMethod,
+                            })
+                          }
+                          className="rounded-xl border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold"
+                        >
+                          <option value="ESPECES">Espèces</option>
+                          <option value="WAVE">Wave</option>
+                          <option value="ORANGE_MONEY">Orange Money</option>
+                          <option value="MTN_MOMO">MTN MoMo</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const amt =
+                              ceremonyDepositAmountMap[cer.id] ??
+                              remainingBalance;
+                            const method =
+                              ceremonyDepositMethodMap[cer.id] || "ESPECES";
+                            if (amt > 0) {
+                              addCeremonyDeposit({
+                                ceremonyId: cer.id,
+                                amount: amt,
+                                method,
+                                operationDateIso: `${cer.eventDate}T14:00:00.000Z`,
+                              });
+                              setCeremonyFeedback(
+                                `Versement de ${formatCFA(amt)} enregistré pour ${cer.clientName}.`
+                              );
+                            }
+                          }}
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-extrabold text-white transition"
+                        >
+                          Encaisser Versement
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          VUE 5 : SAISIE DES OPÉRATIONS (DEPUIS JANV. 2026) & REPORTING JOURNALIER
+      ===================================================================== */}
+      {activeView === "DAILY_REPORTING" && <DailyReportingSheet />}
 
       {/* =====================================================================
           BARRE FLOTTANTE MOBILE POUR OUVRIR LE PANIER SUR SMARTPHONE

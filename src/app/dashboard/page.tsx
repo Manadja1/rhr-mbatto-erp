@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useRhrStore } from "@/store/useRhrStore";
 import { formatCFA, formatDateTime, cn } from "@/lib/utils";
+import { DailyReportingSheet } from "@/components/DailyReportingSheet";
 
 export default function DashboardPage() {
   const {
@@ -302,6 +303,11 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
+
+      {/* =====================================================================
+          0. REPORTING JOURNALIER OFFICIEL (DEPUIS JANVIER 2026) — ADMIN & COMPTABLE
+      ===================================================================== */}
+      <DailyReportingSheet />
 
       {/* =====================================================================
           1. VUE TRÉSORERIE SÉPARÉE EN TEMPS RÉEL (2 COFFRES ÉTANCHES)
