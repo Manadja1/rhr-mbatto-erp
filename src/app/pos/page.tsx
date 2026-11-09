@@ -35,7 +35,6 @@ import {
 } from "@/store/useRhrStore";
 import { formatCFA, formatDateTime, cn } from "@/lib/utils";
 import { QrCodeCardsGeneratorModal } from "@/components/QrCodeCardsGeneratorModal";
-import { DailyReportingSheet } from "@/components/DailyReportingSheet";
 
 type PosFilterCategory =
   | "TOUS"
@@ -61,13 +60,9 @@ export default function PosPage() {
     addCeremonyDeposit,
   } = useRhrStore();
 
-  // Onglet actif : Terminal POS, Commandes QR Entrantes, Salle de Cérémonie, Reporting Journalier ou Rendement Serveuses
+  // Onglet actif : Terminal POS, Commandes QR Entrantes, Salle de Cérémonie (Avances & Reste à Payer) ou Rendement Serveuses
   const [activeView, setActiveView] = useState<
-    | "TERMINAL"
-    | "QR_INCOMING"
-    | "CEREMONIE_HALL"
-    | "DAILY_REPORTING"
-    | "WAITRESS_STATS"
+    "TERMINAL" | "QR_INCOMING" | "CEREMONIE_HALL" | "WAITRESS_STATS"
   >("TERMINAL");
 
   // Formulaire Location Salle de Cérémonie depuis la Caisse Bar/Resto (depuis Janvier 2026)
@@ -460,7 +455,7 @@ export default function PosPage() {
             <span>Commandes QR Entrantes ({incomingQrOrders.length})</span>
           </button>
 
-          {/* Onglet 3 : Location Salle de Cérémonie (au poste Caissière Bar/Resto) */}
+          {/* Onglet 3 : Location Salle de Cérémonie (Avances & Reste à Payer) */}
           <button
             type="button"
             onClick={() => setActiveView("CEREMONIE_HALL")}
@@ -472,25 +467,12 @@ export default function PosPage() {
             )}
           >
             <Sparkles className="h-4 w-4 text-rhr-gold" />
-            <span>Location Salle Cérémonie ({ceremonies.length})</span>
+            <span>
+              Location Salle — Avances &amp; Reste à Payer ({ceremonies.length})
+            </span>
           </button>
 
-          {/* Onglet 4 : Saisie Opérations (Depuis Janv. 2026) & Reporting Journalier */}
-          <button
-            type="button"
-            onClick={() => setActiveView("DAILY_REPORTING")}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition",
-              activeView === "DAILY_REPORTING"
-                ? "bg-emerald-600 text-white shadow"
-                : "bg-white/10 text-gray-200 hover:bg-white/20"
-            )}
-          >
-            <Printer className="h-4 w-4" />
-            <span>Opérations &amp; Reporting Journalier</span>
-          </button>
-
-          {/* Onglet 5 : Rendement des Serveuses */}
+          {/* Onglet 4 : Rendement des Serveuses */}
           <button
             type="button"
             onClick={() => setActiveView("WAITRESS_STATS")}
@@ -1807,11 +1789,6 @@ export default function PosPage() {
           </div>
         </div>
       )}
-
-      {/* =====================================================================
-          VUE 5 : SAISIE DES OPÉRATIONS (DEPUIS JANV. 2026) & REPORTING JOURNALIER
-      ===================================================================== */}
-      {activeView === "DAILY_REPORTING" && <DailyReportingSheet />}
 
       {/* =====================================================================
           BARRE FLOTTANTE MOBILE POUR OUVRIR LE PANIER SUR SMARTPHONE

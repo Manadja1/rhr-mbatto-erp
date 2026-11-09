@@ -61,10 +61,13 @@ function formatDateFr(dateIso: string): string {
 
 export function DailyReportingSheet({
   initialDate = "2026-04-17",
+  scope = "GLOBAL",
 }: {
   initialDate?: string;
+  scope?: "GLOBAL" | "HOTEL_ONLY";
 }) {
   const {
+    currentUser,
     transactions,
     posOrders,
     stays,
@@ -73,6 +76,20 @@ export function DailyReportingSheet({
     updateDailyCashSheetMeta,
     deleteHotelTransaction,
   } = useRhrStore();
+
+  // Si scope === "HOTEL_ONLY" ou rôle Gérant Hôtel : masquer toutes les opérations du Bar / Restaurant
+  const isHotelOnly =
+    scope === "HOTEL_ONLY" || currentUser?.role === "GERANT_HOTEL";
+
+  const activeRowsConfig = useMemo(
+    () =>
+      isHotelOnly
+        ? REPORT_ROWS_CONFIG.filter(
+            (r) => r.key !== "BAR" && r.key !== "RESTAURATION"
+          )
+        : REPORT_ROWS_CONFIG,
+    [isHotelOnly]
+  );
 
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [quickAddOpen, setQuickAddOpen] = useState<boolean>(true);
@@ -103,6 +120,21 @@ export function DailyReportingSheet({
   // Métadonnées de caisse pour la journée sélectionnée
   const currentMeta = dailyCashMetas[selectedDate];
 
+  // Filtrage des transactions selon le périmètre (GLOBAL = Hôtel + Bar/Resto regroupés ; HOTEL_ONLY = Hôtel & Salle uniquement sans le Bar)
+  const scopedTransactions = useMemo(
+    () =>
+      isHotelOnly
+        ? transactions.filter(
+            (t) =>
+              t.pole !== "BAR_RESTO" &&
+              t.pole !== "MARCHE_CUISINE" &&
+              t.dailyReportRow !== "BAR" &&
+              t.dailyReportRow !== "RESTAURATION"
+          )
+        : transactions,
+    [transactions, isHotelOnly]
+  );
+
   // Calcul automatique du Solde à l'ouverture (A) :
   // Si un override manuel est défini pour cette date (ex: 91 000 F le 17/04/2026), on l'utilise ;
   // sinon on calcule le cumul net des journées précédentes depuis le 01/01/2026
@@ -114,7 +146,7 @@ export function DailyReportingSheet({
     ) {
       return currentMeta.openingBalanceOverride;
     }
-    const priorTxs = transactions.filter(
+    const priorTxs = scopedTransactions.filter(
       (t) =>
         t.createdAt.slice(0, 10) >= "2026-01-01" &&
         t.createdAt.slice(0, 10) < selectedDate
@@ -134,23 +166,27 @@ export function DailyReportingSheet({
       );
 
     return Math.max(0, priorIn - priorOut - priorDeposits);
-  }, [currentMeta, transactions, dailyCashMetas, selectedDate]);
+  }, [currentMeta, scopedTransactions, dailyCashMetas, selectedDate]);
 
   // Transactions et commandes POS du jour sélectionné
   const dayTransactions = useMemo(
     () =>
-      transactions.filter((t) => t.createdAt.slice(0, 10) === selectedDate),
-    [transactions, selectedDate]
+      scopedTransactions.filter(
+        (t) => t.createdAt.slice(0, 10) === selectedDate
+      ),
+    [scopedTransactions, selectedDate]
   );
 
   const dayPosOrders = useMemo(
     () =>
-      posOrders.filter(
-        (o) =>
-          o.createdAt.slice(0, 10) === selectedDate &&
-          (o.status === "PAYEE" || o.status === "TRANSFEREE_CHAMBRE")
-      ),
-    [posOrders, selectedDate]
+      isHotelOnly
+        ? []
+        : posOrders.filter(
+            (o) =>
+              o.createdAt.slice(0, 10) === selectedDate &&
+              (o.status === "PAYEE" || o.status === "TRANSFEREE_CHAMBRE")
+          ),
+    [posOrders, selectedDate, isHotelOnly]
   );
 
   const dayStays = useMemo(
@@ -158,10 +194,11 @@ export function DailyReportingSheet({
     [stays, selectedDate]
   );
 
-  // Construction des 9 lignes de Recettes de la journée :
-  // Chambre 1..5, Location salle, Restauration, Bar, Autres
+  // Construction des lignes de Recettes de la journée :
+  // - Mode GLOBAL (Admin & Comptable) : Chambre 1..5, Location salle, Restauration, Bar, Autres (regroupement Bar + Hôtel)
+  // - Mode HOTEL_ONLY (Gérant Hôtel) : Chambre 1..5, Location salle, Autres (sans aucune opération du Bar)
   const revenueRows = useMemo(() => {
-    return REPORT_ROWS_CONFIG.map((cfg) => {
+    return activeRowsConfig.map((cfg) => {
       let gross = 0;
       let discount = 0;
       let net = 0;
@@ -266,7 +303,7 @@ export function DailyReportingSheet({
         observation: finalObservation,
       };
     });
-  }, [dayTransactions, dayPosOrders, dayStays, currentMeta]);
+  }, [activeRowsConfig, dayTransactions, dayPosOrders, dayStays, currentMeta]);
 
   // Totaux Recettes (B)
   const totalRecettesGross = revenueRows.reduce(
@@ -384,15 +421,33 @@ export function DailyReportingSheet({
           <div>
             <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-rhr-burgundy">
               <Sparkles className="h-3.5 w-3.5" />
-              Fiche Officielle de Caisse &amp; Comptabilité — Depuis Janvier 2026
+              {isHotelOnly
+                ? "Reporting Journalier Hôtel & Salle de Cérémonie — Sans Opérations Bar"
+                : "Reporting Journalier Consolidé (Hôtel + Salle + Bar & Resto) — Depuis Janvier 2026"}
             </span>
             <h2 className="text-xl sm:text-2xl font-black text-rhr-dark mt-0.5">
-              Reporting Journalier RHR (Chambres, Salle Cérémonie, Resto &amp; Bar)
+              {isHotelOnly
+                ? "Reporting Journalier Gérant Hôtel (Chambres 1 à 5 & Location Salle)"
+                : "Reporting Journalier Global RHR (Administrateur & Comptable)"}
             </h2>
             <p className="text-xs text-gray-500">
-              Sélectionnez n&apos;importe quelle date depuis le{" "}
-              <strong>01/01/2026</strong> pour saisir les opérations ou imprimer
-              le Reporting Journalier officiel.
+              {isHotelOnly ? (
+                <>
+                  Périmètre <strong>Gérant Hôtel uniquement</strong> (les
+                  opérations du Bar/Restaurant sont masquées). Toutes vos saisies
+                  alimentent automatiquement le Reporting Global de
+                  l&apos;Administrateur et du Comptable.
+                </>
+              ) : (
+                <>
+                  Regroupe automatiquement{" "}
+                  <strong>
+                    toutes les opérations de l&apos;Hôtel, de la Salle de
+                    Cérémonie et du Bar/Restaurant
+                  </strong>{" "}
+                  depuis le <strong>01/01/2026</strong>.
+                </>
+              )}
             </p>
           </div>
 
@@ -569,8 +624,14 @@ export function DailyReportingSheet({
                     <option value="LOCATION_SALLE">
                       Location salle (50 000 F+)
                     </option>
-                    <option value="RESTAURATION">Restauration (Cuisine)</option>
-                    <option value="BAR">Bar (Boissons)</option>
+                    {!isHotelOnly && (
+                      <>
+                        <option value="RESTAURATION">
+                          Restauration (Cuisine)
+                        </option>
+                        <option value="BAR">Bar (Boissons)</option>
+                      </>
+                    )}
                     <option value="AUTRES">Autres recettes</option>
                   </optgroup>
                   <optgroup label="Dépenses de la journée (C)">

@@ -34,6 +34,7 @@ import {
   useRhrStore,
   Room,
   Stay,
+  CeremonyBooking,
   PaymentMethod,
 } from "@/store/useRhrStore";
 import { formatCFA, formatDateTime, cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ import {
   RhrReceiptModal,
   RhrReceiptData,
 } from "@/components/RhrReceiptModal";
+import { DailyReportingSheet } from "@/components/DailyReportingSheet";
 
 // Calcul dynamique du compte à rebours Passage 3H
 function computePassageCountdown(expectedCheckOutIso: string, nowMs: number) {
@@ -72,6 +74,7 @@ export default function HotelPage() {
     folioItems,
     posOrders,
     transactions,
+    ceremonies,
     createCheckInOrReservation,
     collectReservationDeposit,
     activateReservedStay,
@@ -84,6 +87,8 @@ export default function HotelPage() {
     applyRoomDiscount,
     recordHistoricalHotelOperation,
     deleteHotelTransaction,
+    createCeremonyBooking,
+    addCeremonyDeposit,
   } = useRhrStore();
 
   const [nowMs, setNowMs] = useState<number>(Date.now());
@@ -92,7 +97,31 @@ export default function HotelPage() {
     | "CALENDRIER_RESA"
     | "DEPENSES_ENTRETIEN"
     | "HISTORIQUE_MENSUEL"
+    | "LOCATION_SALLE"
+    | "REPORTING_JOURNALIER_HOTEL"
   >("COCKPIT");
+
+  // Formulaire Location Salle de Cérémonie (Gestion des avances et du reste à payer au poste Gérant Hôtel)
+  const [hallDate, setHallDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [hallEventType, setHallEventType] =
+    useState<CeremonyBooking["eventType"]>("MARIAGE");
+  const [hallClientName, setHallClientName] = useState("");
+  const [hallClientPhone, setHallClientPhone] = useState("");
+  const [hallCovers, setHallCovers] = useState<number>(50);
+  const [hallDiscount, setHallDiscount] = useState<number>(0);
+  const [hallInitialAdvance, setHallInitialAdvance] = useState<number>(25000);
+  const [hallPaymentMethod, setHallPaymentMethod] =
+    useState<PaymentMethod>("ESPECES");
+  const [hallNotes, setHallNotes] = useState("");
+  const [hallFeedback, setHallFeedback] = useState<string | null>(null);
+  const [hallDepositAmountMap, setHallDepositAmountMap] = useState<
+    Record<string, number>
+  >({});
+  const [hallDepositMethodMap, setHallDepositMethodMap] = useState<
+    Record<string, PaymentMethod>
+  >({});
 
   // Modal 1 : Check-In ou Réservation avec Acompte + Réduction Chambres 1 à 3
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
@@ -791,11 +820,20 @@ export default function HotelPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("HISTORIQUE_MENSUEL")}
+            onClick={() => setActiveTab("LOCATION_SALLE")}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-4 py-2.5 text-xs font-extrabold text-amber-200 transition"
+          >
+            <Sparkles className="h-4 w-4 text-rhr-gold" />
+            <span>Location Salle (Avances &amp; Reste à Payer)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("REPORTING_JOURNALIER_HOTEL")}
             className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 px-4 py-2.5 text-xs font-extrabold text-emerald-300 transition"
           >
-            <BarChart3 className="h-4 w-4" />
-            <span>Saisie &amp; Point Mensuel (Depuis Janv. 2026)</span>
+            <FileText className="h-4 w-4" />
+            <span>Reporting Journalier Gérant Hôtel</span>
           </button>
         </div>
       </div>
@@ -953,6 +991,37 @@ export default function HotelPage() {
             <span>
               4. Opérations Gérant &amp; Point Mensuel (Depuis Janv. 2026)
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("LOCATION_SALLE")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
+              activeTab === "LOCATION_SALLE"
+                ? "bg-rhr-burgundy text-white shadow"
+                : "text-amber-900 bg-amber-50 hover:bg-amber-100"
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>
+              5. Location Salle — Avances &amp; Reste à Payer (
+              {ceremonies.length})
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("REPORTING_JOURNALIER_HOTEL")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
+              activeTab === "REPORTING_JOURNALIER_HOTEL"
+                ? "bg-rhr-burgundy text-white shadow"
+                : "text-blue-900 bg-blue-50 hover:bg-blue-100"
+            )}
+          >
+            <FileText className="h-4 w-4" />
+            <span>6. Reporting Journalier Hôtel (Sans Bar)</span>
           </button>
         </div>
 
@@ -2512,6 +2581,424 @@ export default function HotelPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* =====================================================================
+          ONGLET 5 : LOCATION SALLE DE CÉRÉMONIE — GESTION DES AVANCES & RESTE À PAYER
+      ===================================================================== */}
+      {activeTab === "LOCATION_SALLE" && (
+        <div className="space-y-6">
+          <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-rhr-burgundy">
+                  <Sparkles className="h-4 w-4" />
+                  Location de la Salle de Cérémonie — Gérant Hôtel
+                </span>
+                <h2 className="text-xl font-black text-rhr-dark mt-0.5">
+                  Enregistrer une Location de Salle &amp; Gérer les Avances / Reste à Payer
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Forfait de base : 50 000 FCFA (jusqu&apos;à 50 couverts inclus) +
+                  supplément couverts + remise éventuelle. Alimente automatiquement
+                  la ligne <strong>Location salle</strong> du Reporting Journalier.
+                </p>
+              </div>
+            </div>
+
+            {hallFeedback && (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-bold text-emerald-900 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  {hallFeedback}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setHallFeedback(null)}
+                  className="text-emerald-700 hover:underline"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!hallClientName.trim()) return;
+                const extraCovers = Math.max(0, hallCovers - 50);
+                const grossQuote = 50000 + extraCovers * 1000;
+                const safeDiscount = Math.max(
+                  0,
+                  Math.min(hallDiscount || 0, grossQuote)
+                );
+                const advanceToRecord = Math.max(0, hallInitialAdvance || 0);
+
+                createCeremonyBooking({
+                  eventDate: hallDate,
+                  eventType: hallEventType,
+                  clientName: hallClientName.trim(),
+                  clientPhone: hallClientPhone.trim() || "Non renseigné",
+                  extraOrdinaryCovers: extraCovers,
+                  extraVipCovers: 0,
+                  customCateringLines: [],
+                  customBeverageLines: [],
+                  discountAmount: safeDiscount,
+                  initialDepositAmount: advanceToRecord,
+                  initialDepositMethod: hallPaymentMethod,
+                  operationDateIso: `${hallDate}T12:00:00.000Z`,
+                  notes:
+                    hallNotes.trim() ||
+                    `Location salle (${hallEventType}) — ${hallClientName.trim()}`,
+                });
+
+                const netTotal = Math.max(0, grossQuote - safeDiscount);
+                const rem = Math.max(0, netTotal - advanceToRecord);
+
+                setHallFeedback(
+                  `Location Salle enregistrée pour ${hallClientName.trim()} (${hallDate}) — Total Net : ${formatCFA(
+                    netTotal
+                  )} | Avance versée : ${formatCFA(
+                    advanceToRecord
+                  )} | Reste à payer : ${formatCFA(rem)}.`
+                );
+                setHallClientName("");
+                setHallClientPhone("");
+                setHallNotes("");
+              }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
+            >
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Date de la Location / Opération
+                </label>
+                <input
+                  type="date"
+                  min="2026-01-01"
+                  value={hallDate}
+                  onChange={(e) => setHallDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-rhr-dark"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Type d&apos;Événement
+                </label>
+                <select
+                  value={hallEventType}
+                  onChange={(e) =>
+                    setHallEventType(
+                      e.target.value as CeremonyBooking["eventType"]
+                    )
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-rhr-dark"
+                >
+                  <option value="MARIAGE">Mariage</option>
+                  <option value="DOT">Dot / Cérémonie Coutumière</option>
+                  <option value="BAPTEME">Baptême</option>
+                  <option value="ANNIVERSAIRE">Anniversaire</option>
+                  <option value="CONFERENCE">Conférence / Séminaire</option>
+                  <option value="AUTRE">Autre Événement</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Nom du Client / Organisateur
+                </label>
+                <input
+                  type="text"
+                  value={hallClientName}
+                  onChange={(e) => setHallClientName(e.target.value)}
+                  placeholder="Ex: Famille Kouassi / ONG..."
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Téléphone Client
+                </label>
+                <input
+                  type="text"
+                  value={hallClientPhone}
+                  onChange={(e) => setHallClientPhone(e.target.value)}
+                  placeholder="Ex: 07 00 00 00 00"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Nombre de Couverts (50 inclus = 50 000 F)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={hallCovers}
+                  onChange={(e) =>
+                    setHallCovers(Math.max(1, Number(e.target.value) || 50))
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-rhr-dark"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-amber-800 mb-1">
+                  Remise accordée (FCFA)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={hallDiscount || ""}
+                  onChange={(e) =>
+                    setHallDiscount(Math.max(0, Number(e.target.value) || 0))
+                  }
+                  placeholder="0"
+                  className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-2 text-xs font-bold text-amber-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-emerald-800 mb-1">
+                  Avance / Acompte Versé (FCFA)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={hallInitialAdvance}
+                  onChange={(e) =>
+                    setHallInitialAdvance(
+                      Math.max(0, Number(e.target.value) || 0)
+                    )
+                  }
+                  className="w-full rounded-xl border border-emerald-300 bg-emerald-50/50 px-3 py-2 text-xs font-black text-emerald-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
+                  Mode de Règlement &amp; Observation
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={hallPaymentMethod}
+                    onChange={(e) =>
+                      setHallPaymentMethod(e.target.value as PaymentMethod)
+                    }
+                    className="rounded-xl border border-gray-300 px-2.5 py-2 text-xs font-bold text-rhr-dark"
+                  >
+                    <option value="ESPECES">Espèces</option>
+                    <option value="WAVE">Wave</option>
+                    <option value="ORANGE_MONEY">Orange Money</option>
+                    <option value="MTN_MOMO">MTN MoMo</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={hallNotes}
+                    onChange={(e) => setHallNotes(e.target.value)}
+                    placeholder="Observation..."
+                    className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                {(() => {
+                  const gross = 50000 + Math.max(0, hallCovers - 50) * 1000;
+                  const net = Math.max(0, gross - (hallDiscount || 0));
+                  const rem = Math.max(0, net - (hallInitialAdvance || 0));
+                  return (
+                    <div className="text-xs text-gray-600 flex flex-wrap items-center gap-3">
+                      <span>
+                        Montant Brut :{" "}
+                        <strong className="text-rhr-dark">
+                          {formatCFA(gross)}
+                        </strong>
+                      </span>
+                      <span>
+                        • Remise :{" "}
+                        <strong className="text-amber-700">
+                          -{formatCFA(hallDiscount || 0)}
+                        </strong>
+                      </span>
+                      <span>
+                        • Net à payer :{" "}
+                        <strong className="text-rhr-dark font-black">
+                          {formatCFA(net)}
+                        </strong>
+                      </span>
+                      <span>
+                        • Avance versée :{" "}
+                        <strong className="text-emerald-700 font-black">
+                          {formatCFA(hallInitialAdvance || 0)}
+                        </strong>
+                      </span>
+                      <span>
+                        • Reste à payer :{" "}
+                        <strong className="text-rhr-burgundy font-black">
+                          {formatCFA(rem)}
+                        </strong>
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-5 py-2.5 text-xs font-black text-white shadow-rhr transition"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Enregistrer la Location &amp; l&apos;Avance</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Suivi des Avances et Reste à Payer sur les locations de salle */}
+          <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-4">
+            <h3 className="text-base font-black text-rhr-dark">
+              Suivi des Dossiers de Location de Salle — Avances &amp; Reste à Payer ({ceremonies.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ceremonies.map((cer) => {
+                const remainingBalance = Math.max(
+                  0,
+                  cer.totalAmount - cer.totalPaid
+                );
+                return (
+                  <div
+                    key={cer.id}
+                    className="rounded-2xl border border-gray-200 bg-rhr-surface p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="inline-block rounded-md bg-rhr-burgundy/10 px-2 py-0.5 text-[10px] font-black text-rhr-burgundy">
+                          {cer.eventType} • Date : {cer.eventDate}
+                        </span>
+                        <h4 className="text-sm font-black text-rhr-dark mt-1">
+                          {cer.clientName} ({cer.clientPhone})
+                        </h4>
+                        <p className="text-[11px] text-gray-500">{cer.notes}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-[10px] font-black uppercase",
+                          cer.status === "SOLDE"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-900"
+                        )}
+                      >
+                        {cer.status === "SOLDE"
+                          ? "SOLDÉ"
+                          : "AVANCE REÇUE • RESTE À PAYER"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-white p-2.5 border border-gray-200 text-xs">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">
+                          Montant Total Net
+                        </span>
+                        <strong className="font-black text-rhr-dark">
+                          {formatCFA(cer.totalAmount)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">
+                          Avance(s) Payée(s)
+                        </span>
+                        <strong className="font-black text-emerald-700">
+                          {formatCFA(cer.totalPaid)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">
+                          Reste à Payer
+                        </span>
+                        <strong className="font-black text-rhr-burgundy">
+                          {formatCFA(remainingBalance)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {remainingBalance > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <input
+                          type="number"
+                          min={500}
+                          step={500}
+                          value={
+                            hallDepositAmountMap[cer.id] ?? remainingBalance
+                          }
+                          onChange={(e) =>
+                            setHallDepositAmountMap({
+                              ...hallDepositAmountMap,
+                              [cer.id]: Number(e.target.value) || 0,
+                            })
+                          }
+                          className="w-28 rounded-xl border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold"
+                        />
+                        <select
+                          value={hallDepositMethodMap[cer.id] || "ESPECES"}
+                          onChange={(e) =>
+                            setHallDepositMethodMap({
+                              ...hallDepositMethodMap,
+                              [cer.id]: e.target.value as PaymentMethod,
+                            })
+                          }
+                          className="rounded-xl border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold"
+                        >
+                          <option value="ESPECES">Espèces</option>
+                          <option value="WAVE">Wave</option>
+                          <option value="ORANGE_MONEY">Orange Money</option>
+                          <option value="MTN_MOMO">MTN MoMo</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const amt =
+                              hallDepositAmountMap[cer.id] ?? remainingBalance;
+                            const method =
+                              hallDepositMethodMap[cer.id] || "ESPECES";
+                            if (amt > 0) {
+                              addCeremonyDeposit({
+                                ceremonyId: cer.id,
+                                amount: amt,
+                                method,
+                                operationDateIso: `${cer.eventDate}T14:00:00.000Z`,
+                              });
+                              setHallFeedback(
+                                `Versement de ${formatCFA(
+                                  amt
+                                )} enregistré sur le dossier ${cer.clientName}.`
+                              );
+                            }
+                          }}
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-extrabold text-white transition"
+                        >
+                          Encaisser Avance / Solde
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          ONGLET 6 : REPORTING JOURNALIER DU GÉRANT HÔTEL (SANS OPÉRATIONS BAR)
+      ===================================================================== */}
+      {activeTab === "REPORTING_JOURNALIER_HOTEL" && (
+        <DailyReportingSheet scope="HOTEL_ONLY" />
       )}
 
       {/* =====================================================================
