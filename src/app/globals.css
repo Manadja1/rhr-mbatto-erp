@@ -11,12 +11,24 @@
 }
 
 @layer base {
+  html,
   body {
     background-color: var(--rhr-surface);
     color: var(--rhr-dark);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
+}
+
+/* Masquer la barre de défilement horizontale sur les filtres mobiles tout en gardant le scroll tactile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom subtle scrollbars for POS & ERP tables */
@@ -36,4 +48,15 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #7C0A02;
+}
+
+@media print {
+  aside,
+  header {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
 }

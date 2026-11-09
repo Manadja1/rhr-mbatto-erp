@@ -240,7 +240,7 @@ export function QrCodeCardsGeneratorModal({
               type="text"
               value={baseOrigin}
               onChange={(e) => setBaseOrigin(e.target.value)}
-              className="w-52 rounded-xl border border-gray-300 bg-white px-3 py-1.5 font-mono text-xs font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+              className="w-full sm:w-56 rounded-xl border border-gray-300 bg-white px-3 py-1.5 font-mono text-xs font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
               placeholder="http://localhost:3000"
             />
             <button

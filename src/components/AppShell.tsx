@@ -267,13 +267,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="h-screen w-full overflow-hidden flex bg-rhr-surface text-rhr-dark">
+    <div className="h-[100dvh] w-full overflow-hidden flex bg-rhr-surface text-rhr-dark relative">
+      {/* Fond sombre cliquable sur mobile/tablette lorsque le menu latéral est ouvert */}
+      {mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-xs transition-opacity lg:hidden"
+        />
+      )}
+
       {/* =====================================================================
           SIDEBAR LATÉRALE NOIR CHARBON (#111315) AVEC NAVIGATION FILTRÉE RBAC
       ===================================================================== */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-72 h-full shrink-0 bg-rhr-dark text-white flex flex-col justify-between border-r border-white/10 transition-transform duration-200 lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] h-full shrink-0 bg-rhr-dark text-white flex flex-col justify-between border-r border-white/10 transition-transform duration-200 lg:static lg:translate-x-0",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -431,33 +440,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ===================================================================== */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* BARRE D'ÉTAT SUPÉRIEURE PERMANENTE */}
-        <header className="shrink-0 z-30 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <header className="shrink-0 z-20 bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
             {/* Gauche : Bouton Menu Mobile + Indicateur Utilisateur & Rôle */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 type="button"
                 onClick={() => setMobileNavOpen(true)}
-                className="lg:hidden rounded-xl border border-gray-200 p-2 text-rhr-dark hover:bg-gray-100"
+                aria-label="Ouvrir le menu de navigation"
+                className="lg:hidden rounded-xl border border-gray-200 p-2 text-rhr-dark hover:bg-gray-100 shrink-0"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
               {currentUser && (
-                <div className="flex items-center gap-2.5">
-                  <div className="hidden sm:flex h-9 w-9 rounded-xl bg-rhr-dark text-rhr-gold items-center justify-center font-black text-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="hidden sm:flex h-9 w-9 rounded-xl bg-rhr-dark text-rhr-gold items-center justify-center font-black text-sm shrink-0">
                     {currentUser.fullName.charAt(0)}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-extrabold text-rhr-dark">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                      <span className="text-xs sm:text-sm font-extrabold text-rhr-dark truncate max-w-[145px] sm:max-w-none">
                         {currentUser.fullName}
                       </span>
-                      <span className="rounded-md bg-rhr-burgundy px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                      <span className="rounded-md bg-rhr-burgundy px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-white shrink-0">
                         {ROLE_BADGE_STYLES[currentUser.role].label}
                       </span>
                     </div>
-                    <div className="text-[11px] text-gray-500 flex items-center gap-2">
+                    <div className="hidden md:flex text-[11px] text-gray-500 items-center gap-2">
                       <span>
                         Signature Audit :{" "}
                         <code className="font-mono font-bold text-rhr-dark">
@@ -471,11 +481,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Droite : Statut Réseau Offline-First + File d'attente SyncQueue + Actions Session */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {/* Badge Statut Réseau (En ligne / Hors-ligne) interactif */}
               <div
                 className={cn(
-                  "flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition",
+                  "flex items-center gap-1.5 sm:gap-2 rounded-xl border px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold transition",
                   isOnline
                     ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                     : "border-amber-300 bg-amber-50 text-amber-900"
@@ -483,19 +493,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {isOnline ? (
                   <>
-                    <Wifi className="h-4 w-4 text-emerald-600" />
-                    <span>En ligne (M&apos;Batto)</span>
+                    <Wifi className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
+                    <span className="hidden sm:inline">En ligne (M&apos;Batto)</span>
+                    <span className="sm:hidden">En ligne</span>
                   </>
                 ) : (
                   <>
-                    <WifiOff className="h-4 w-4 text-amber-600 animate-pulse" />
-                    <span>Mode Hors-Ligne Actif</span>
+                    <WifiOff className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 animate-pulse shrink-0" />
+                    <span className="hidden sm:inline">Mode Hors-Ligne Actif</span>
+                    <span className="sm:hidden">Hors-Ligne</span>
                   </>
                 )}
 
-                <span className="text-gray-300">|</span>
+                <span className="hidden sm:inline text-gray-300">|</span>
 
-                <span className="inline-flex items-center gap-1 font-mono text-[11px]">
+                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[11px]">
                   <CloudUpload className="h-3.5 w-3.5" />
                   <span>{syncQueue.length} en attente</span>
                 </span>

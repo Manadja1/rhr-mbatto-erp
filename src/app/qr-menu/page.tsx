@@ -391,7 +391,7 @@ export default function QrMenuPage() {
       {/* =====================================================================
           2. FILTRES CATÉGORIES DE LA CARTE RHR (NOURRITURE & BOISSONS)
       ===================================================================== */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1.5 sm:pb-0 sm:flex-wrap no-scrollbar -mx-1 px-1">
         {[
           { id: "TOUS", label: "🍽️ Tout le Menu (Nourriture & Boissons)" },
           { id: "NOURRITURE", label: "🍗 Menu Nourriture (Plats & Grillades)" },
@@ -410,7 +410,7 @@ export default function QrMenuPage() {
             type="button"
             onClick={() => setActiveCategory(cat.id)}
             className={cn(
-              "rounded-2xl px-4 py-2 text-xs font-extrabold transition",
+              "rounded-2xl px-4 py-2 text-xs font-extrabold transition shrink-0 whitespace-nowrap",
               activeCategory === cat.id
                 ? "bg-rhr-burgundy text-white shadow-rhr"
                 : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"

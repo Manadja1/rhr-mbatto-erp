@@ -105,11 +105,29 @@ export default function LoginPage() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number>(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (lockoutUntil <= Date.now()) {
+      setLockoutSeconds(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setLockoutSeconds(rem);
+      if (rem === 0) {
+        setFailedAttempts(0);
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [lockoutUntil]);
 
   // Sélection d'un poste sans jamais exposer les identifiants d'un autre utilisateur
   const handleSelectProfile = (card: ProfileCardOption) => {
@@ -120,8 +138,14 @@ export default function LoginPage() {
     setErrorMsg(null);
   };
 
-  // Saisie sur le pavé numérique tactile
+  // Saisie sur le pavé numérique tactile avec protection anti-force brute (5 essais max -> blocage 30s)
   const handlePinDigit = (digit: string) => {
+    if (lockoutSeconds > 0) {
+      setErrorMsg(
+        `Sécurité anti-intrusion active : veuillez patienter ${lockoutSeconds}s avant un nouvel essai.`
+      );
+      return;
+    }
     setErrorMsg(null);
     if (pin.length >= 4) return;
     const nextPin = pin + digit;
@@ -130,12 +154,24 @@ export default function LoginPage() {
     if (nextPin.length === 4) {
       const result = loginWithPin(nextPin, selectedProfile.role);
       if (result.success && result.user) {
+        setFailedAttempts(0);
         router.push(getDefaultRouteForRole(result.user.role));
       } else {
-        setErrorMsg(
-          result.error ||
-            "Code PIN incorrect pour ce poste d'accès. Veuillez réessayer."
-        );
+        const nextFails = failedAttempts + 1;
+        setFailedAttempts(nextFails);
+        if (nextFails >= 5) {
+          const until = Date.now() + 30_000;
+          setLockoutUntil(until);
+          setLockoutSeconds(30);
+          setErrorMsg(
+            "5 tentatives erronées détectées. Pavé PIN verrouillé pendant 30 secondes par sécurité."
+          );
+        } else {
+          setErrorMsg(
+            result.error ||
+            `Code PIN incorrect (${5 - nextFails} essai(s) restant(s)).`
+          );
+        }
         setTimeout(() => setPin(""), 450);
       }
     }
@@ -164,11 +200,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden w-full grid grid-cols-1 lg:grid-cols-12 bg-rhr-surface">
+    <div className="min-h-[100dvh] lg:h-[100dvh] lg:overflow-hidden w-full grid grid-cols-1 lg:grid-cols-12 bg-rhr-surface">
       {/* =====================================================================
           COLONNE GAUCHE : BRANDING NOIR CHARBON (#111315) & IDENTITÉ RHR
       ===================================================================== */}
-      <div className="relative lg:col-span-5 xl:col-span-5 bg-rhr-dark text-white flex flex-col justify-between p-8 lg:p-10 lg:h-full lg:overflow-y-auto overflow-x-hidden">
+      <div className="relative lg:col-span-5 xl:col-span-5 bg-rhr-dark text-white flex flex-col justify-between p-5 sm:p-8 lg:p-10 lg:h-full lg:overflow-y-auto overflow-x-hidden">
         {/* Décoration architecturale inspirée du toit RHR */}
         <div
           className="pointer-events-none absolute -top-28 -left-28 h-96 w-96 rounded-full opacity-20 blur-3xl"
@@ -242,7 +278,7 @@ export default function LoginPage() {
           </div>
 
           {/* Illustration architecturale & Aperçu temps réel du complexe */}
-          <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#1C1F23] via-[#15181B] to-[#2A0805] p-6 shadow-2xl">
+          <div className="hidden sm:block relative overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#1C1F23] via-[#15181B] to-[#2A0805] p-5 sm:p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-rhr-gold">
@@ -339,7 +375,7 @@ export default function LoginPage() {
             </div>
 
             {/* Grille synthèse des règles métier RHR */}
-            <div className="grid grid-cols-3 gap-2.5 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
               <div className="rounded-xl bg-white/5 p-3 border border-white/10">
                 <div className="font-bold text-rhr-gold">5 Chambres</div>
                 <div className="text-gray-300 mt-0.5">
