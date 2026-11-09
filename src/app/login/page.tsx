@@ -21,6 +21,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { RhrLogo } from "@/components/RhrLogo";
+import { PwaInstaller } from "@/components/pwa/PwaInstaller";
 import {
   useRhrStore,
   UserRole,
@@ -446,19 +447,22 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {mounted && currentUser && (
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(getDefaultRouteForRole(currentUser.role))
-                }
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition shrink-0"
-              >
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>Reprendre : {currentUser.fullName.split("—")[0]}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <PwaInstaller variant="login" />
+              {mounted && currentUser && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(getDefaultRouteForRole(currentUser.role))
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition shrink-0"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Reprendre : {currentUser.fullName.split("—")[0]}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 1. SÉLECTEUR VISUEL DES POSTES (SANS AUCUN CODE PIN NI IDENTIFIANT EXPOSÉ) */}

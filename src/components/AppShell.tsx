@@ -29,6 +29,7 @@ import {
   Settings,
 } from "lucide-react";
 import { RhrLogo } from "@/components/RhrLogo";
+import { PwaInstaller } from "@/components/pwa/PwaInstaller";
 import {
   useRhrStore,
   RHR_ROUTES,
@@ -541,6 +542,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </span>
                 </button>
               )}
+
+              {/* Bouton d'installation PWA Intelligent (Android / Chrome PC / iOS Safari) */}
+              <PwaInstaller variant="header" />
 
               {/* Bouton Changement sécurisé de session */}
               <button

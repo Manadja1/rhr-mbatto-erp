@@ -1,0 +1,88 @@
+{
+  "name": "RHR - Résidence Hôtel Le Rêve de M'Batto",
+  "short_name": "RHR Gestion",
+  "description": "Système ERP & POS Hybride Offline-First de la Résidence Hôtel Le Rêve de M'Batto (Hôtel 5 Chambres, Bar & Restaurant, Salle de Cérémonie, Trésorerie).",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#7C0A02",
+  "background_color": "#111315",
+  "lang": "fr-CI",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/logo-rhr.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-rhr.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-rhr.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Caisse Bar & Resto",
+      "short_name": "Caisse POS",
+      "description": "Point de vente Bar/Resto, Serveuses & Commandes QR",
+      "url": "/pos",
+      "icons": [
+        {
+          "src": "/logo-rhr.jpg",
+          "sizes": "192x192",
+          "type": "image/jpeg"
+        }
+      ]
+    },
+    {
+      "name": "Gestion des 5 Chambres",
+      "short_name": "Hôtel 5 Ch.",
+      "description": "Nuitées, Passages 3H (Ch. 4 & 5), Réservations & Folios",
+      "url": "/hotel",
+      "icons": [
+        {
+          "src": "/logo-rhr.jpg",
+          "sizes": "192x192",
+          "type": "image/jpeg"
+        }
+      ]
+    },
+    {
+      "name": "Menu Client QR",
+      "short_name": "Menu QR",
+      "description": "Carte interactive Nourriture & Boissons (Tables & Chambres)",
+      "url": "/qr-menu",
+      "icons": [
+        {
+          "src": "/logo-rhr.jpg",
+          "sizes": "192x192",
+          "type": "image/jpeg"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard Propriétaire",
+      "short_name": "Dashboard",
+      "description": "Pilotage Financier, Bénéfice Net & Coffres Espèces / Mobile Money",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/logo-rhr.jpg",
+          "sizes": "192x192",
+          "type": "image/jpeg"
+        }
+      ]
+    }
+  ]
+}
+
