@@ -124,6 +124,8 @@ export interface Stay {
   actualCheckOut?: string;
   nightsCount: number;
   baseRate: number;
+  discountAmount?: number; // Réduction accordée (notamment Chambres 1 à 3)
+  discountReason?: string;
   depositAmount: number;
   depositMethod?: PaymentMethod;
   notes?: string;
@@ -1605,7 +1607,7 @@ interface RhrStoreState {
   resetDemoData: () => void;
   clearAllDemoCounters: () => void;
 
-  // Actions Pôle Hôtel (Sprint 2)
+  // Actions Pôle Hôtel (Sprint 2 + Réductions Ch. 1-3 & Historique depuis Janvier 2026)
   createCheckInOrReservation: (input: {
     roomId: string;
     guestName: string;
@@ -1614,10 +1616,37 @@ interface RhrStoreState {
     stayType: "NUITEE" | "PASSAGE_3H" | "RESERVATION";
     checkInDateIso?: string;
     nightsCount: number;
+    discountAmount?: number;
+    discountReason?: string;
     depositAmount: number;
     depositMethod: PaymentMethod;
     notes?: string;
   }) => { success: boolean; stayId?: string; error?: string };
+
+  applyRoomDiscount: (input: {
+    stayId: string;
+    discountAmount: number;
+    discountReason?: string;
+  }) => { success: boolean; error?: string };
+
+  recordHistoricalHotelOperation: (input: {
+    operationType: "SEJOUR_CHAMBRE" | "DEPENSE_HOTEL";
+    operationDateIso: string; // ex: "2026-01-15"
+    roomNumber?: number; // 1 à 5
+    stayType?: "NUITEE" | "PASSAGE_3H";
+    nightsCount?: number;
+    guestName?: string;
+    guestPhone?: string;
+    discountAmount?: number; // Pour Chambres 1 à 3
+    discountReason?: string;
+    amount: number; // Montant net encaissé ou décaissé
+    paymentMethod: PaymentMethod;
+    expenseCategory?: string;
+    expenseFundSource?: "CAISSE_DU_JOUR" | "FONDS_SEPARE";
+    description?: string;
+  }) => { success: boolean; error?: string; transaction?: Transaction };
+
+  deleteHotelTransaction: (transactionId: string) => void;
 
   collectReservationDeposit: (input: {
     stayId: string;
@@ -1654,6 +1683,7 @@ interface RhrStoreState {
     paymentMethod: PaymentMethod;
     fundSource: "CAISSE_DU_JOUR" | "FONDS_SEPARE";
     receiptPhotoUrl?: string;
+    operationDateIso?: string;
   }) => Transaction;
 
   // Actions Pôle POS Bar & Restaurant, Stocks & Menu QR (Sprint 3)
@@ -2506,10 +2536,23 @@ export const useRhrStore = create<RhrStoreState>()(
 
         const unitRate =
           input.stayType === "PASSAGE_3H" ? room.passagePrice : room.nightPrice;
-        const totalAccommodationCost =
+        const grossAccommodationCost =
           input.stayType === "PASSAGE_3H"
             ? room.passagePrice
             : room.nightPrice * nights;
+
+        // Réduction commerciale applicable sur les Chambres 1 à 3 (Catégorie Confort)
+        const rawDiscount =
+          room.roomNumber <= 3 && input.stayType !== "PASSAGE_3H"
+            ? Math.max(0, Math.round(input.discountAmount || 0))
+            : 0;
+        const cleanDiscount = Math.min(grossAccommodationCost, rawDiscount);
+        const cleanDiscountReason = input.discountReason?.trim() || undefined;
+
+        const totalAccommodationCost = Math.max(
+          0,
+          grossAccommodationCost - cleanDiscount
+        );
 
         const deposit = Math.max(0, Math.round(input.depositAmount || 0));
         const stayId = `stay-r${room.roomNumber}-${Date.now()}`;
@@ -2527,12 +2570,21 @@ export const useRhrStore = create<RhrStoreState>()(
           expectedCheckOut: expectedOutIso,
           nightsCount: nights,
           baseRate: unitRate,
+          discountAmount: cleanDiscount > 0 ? cleanDiscount : undefined,
+          discountReason: cleanDiscount > 0 ? cleanDiscountReason : undefined,
           depositAmount: deposit,
           depositMethod: deposit > 0 ? input.depositMethod : undefined,
           notes: input.notes?.trim() || undefined,
           createdBy: user.id,
           createdAt: nowIso,
         };
+
+        const discountLabelSuffix =
+          cleanDiscount > 0
+            ? ` — Réduction accordée : -${cleanDiscount.toLocaleString(
+                "fr-FR"
+              )} F${cleanDiscountReason ? ` (${cleanDiscountReason})` : ""}`
+            : "";
 
         const newFolioLines: RoomFolioItem[] = [
           {
@@ -2542,9 +2594,11 @@ export const useRhrStore = create<RhrStoreState>()(
             description:
               input.stayType === "PASSAGE_3H"
                 ? `Forfait Passage 3 Heures — Chambre ${room.roomNumber}`
-                : `${input.stayType === "RESERVATION" ? "Réservation" : "Séjour"
-                } ${nights} Nuitée(s) — Chambre ${room.roomNumber} (${room.category
-                })`,
+                : `${
+                    input.stayType === "RESERVATION" ? "Réservation" : "Séjour"
+                  } ${nights} Nuitée(s) — Chambre ${room.roomNumber} (${
+                    room.category
+                  })${discountLabelSuffix}`,
             category: "HEBERGEMENT",
             amount: totalAccommodationCost,
             isPaid: deposit >= totalAccommodationCost,
@@ -2560,10 +2614,11 @@ export const useRhrStore = create<RhrStoreState>()(
             id: `folio-dep-${Date.now() + 1}`,
             stayId,
             roomNumber: room.roomNumber,
-            description: `${input.stayType === "PASSAGE_3H"
+            description: `${
+              input.stayType === "PASSAGE_3H"
                 ? "Règlement Passage 3H"
                 : "Acompte / Règlement Hébergement"
-              } (${input.depositMethod.replace(/_/g, " ")})`,
+            } (${input.depositMethod.replace(/_/g, " ")})`,
             category: "ACOMPTE",
             amount: -deposit,
             isPaid: true,
@@ -2584,12 +2639,17 @@ export const useRhrStore = create<RhrStoreState>()(
                 : "CAISSE_MOBILE_MONEY",
             paymentMethod: input.depositMethod,
             amount: deposit,
-            description: `${input.stayType === "RESERVATION"
+            description: `${
+              input.stayType === "RESERVATION"
                 ? "Acompte Réservation"
                 : input.stayType === "PASSAGE_3H"
-                  ? "Encaissement Passage 3H"
-                  : "Encaissement Check-In Nuitée"
-              } Chambre ${room.roomNumber} — ${input.guestName.trim()}`,
+                ? "Encaissement Passage 3H"
+                : "Encaissement Check-In Nuitée"
+            } Chambre ${room.roomNumber} — ${input.guestName.trim()}${
+              cleanDiscount > 0
+                ? ` (Réduction -${cleanDiscount.toLocaleString("fr-FR")} F)`
+                : ""
+            }`,
             relatedEntityId: stayId,
             createdBy: user.id,
             createdByName: user.fullName,
@@ -2995,11 +3055,13 @@ export const useRhrStore = create<RhrStoreState>()(
       addHotelExpense: (input) => {
         const state = get();
         const user = state.currentUser || state.users[2];
-        const nowIso = new Date().toISOString();
+        const effectiveDateIso = input.operationDateIso
+          ? new Date(input.operationDateIso).toISOString()
+          : new Date().toISOString();
         const cleanAmount = Math.max(1, Math.round(input.amount));
 
         const tx: Transaction = {
-          id: `tx-dep-${Date.now()}`,
+          id: `tx-dep-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           reference: `DEP-${String(state.transactions.length + 1).padStart(
             3,
             "0"
@@ -3017,7 +3079,7 @@ export const useRhrStore = create<RhrStoreState>()(
           receiptPhotoUrl: input.receiptPhotoUrl,
           createdBy: user.id,
           createdByName: user.fullName,
-          createdAt: nowIso,
+          createdAt: effectiveDateIso,
         };
 
         set((prev) => ({
@@ -3027,11 +3089,328 @@ export const useRhrStore = create<RhrStoreState>()(
         get().enqueueSyncOperation("transactions", "INSERT", {
           id: tx.id,
           reference: tx.reference,
+          type: tx.type,
+          pole: tx.pole,
+          vault: tx.vault,
+          paymentMethod: tx.paymentMethod,
           amount: tx.amount,
           fundSource: tx.expenseFundSource,
+          description: tx.description,
+          createdBy: tx.createdBy,
+          createdByName: tx.createdByName,
+          createdAt: tx.createdAt,
         });
 
         return tx;
+      },
+
+      applyRoomDiscount: ({ stayId, discountAmount, discountReason }) => {
+        const state = get();
+        const stay = state.stays.find((s) => s.id === stayId);
+        if (!stay) {
+          return { success: false, error: "Séjour introuvable." };
+        }
+        const room = state.rooms.find((r) => r.id === stay.roomId);
+        if (!room) {
+          return { success: false, error: "Chambre introuvable." };
+        }
+        if (room.roomNumber > 3) {
+          return {
+            success: false,
+            error: "Les réductions sont réservées aux Chambres 1 à 3.",
+          };
+        }
+        if (stay.stayType === "PASSAGE_3H") {
+          return {
+            success: false,
+            error: "Pas de réduction applicable sur un passage 3H.",
+          };
+        }
+
+        const grossCost = room.nightPrice * Math.max(1, stay.nightsCount);
+        const cleanDiscount = Math.min(
+          grossCost,
+          Math.max(0, Math.round(discountAmount || 0))
+        );
+        const netCost = Math.max(0, grossCost - cleanDiscount);
+        const cleanReason = discountReason?.trim() || undefined;
+
+        const baseDescription = `${stay.nightsCount} Nuitée(s) — ${room.name} (${room.nightPrice.toLocaleString("fr-FR")} F/nuit)`;
+        const updatedDescription =
+          cleanDiscount > 0
+            ? `${baseDescription} — Réduction accordée : -${cleanDiscount.toLocaleString("fr-FR")} F${cleanReason ? ` (${cleanReason})` : ""}`
+            : baseDescription;
+
+        const updatedStay: Stay = {
+          ...stay,
+          discountAmount: cleanDiscount > 0 ? cleanDiscount : undefined,
+          discountReason: cleanDiscount > 0 ? cleanReason : undefined,
+        };
+
+        set((prev) => ({
+          stays: prev.stays.map((s) => (s.id === stay.id ? updatedStay : s)),
+          folioItems: prev.folioItems.map((f) =>
+            f.stayId === stay.id && f.category === "HEBERGEMENT"
+              ? {
+                  ...f,
+                  amount: netCost,
+                  description: updatedDescription,
+                }
+              : f
+          ),
+        }));
+
+        get().enqueueSyncOperation("stays", "UPDATE", {
+          id: stay.id,
+          discountAmount: cleanDiscount,
+          discountReason: cleanReason,
+          netCost,
+        });
+
+        return {
+          success: true,
+          stay: updatedStay,
+          newTotalCharges: netCost,
+        };
+      },
+
+      recordHistoricalHotelOperation: (input) => {
+        const state = get();
+        const gerantUser =
+          state.users.find((u) => u.role === "GERANT_HOTEL") ||
+          state.currentUser ||
+          state.users[2];
+
+        const parsedDate = input.operationDateIso
+          ? new Date(
+              input.operationDateIso.includes("T")
+                ? input.operationDateIso
+                : `${input.operationDateIso}T12:00:00`
+            )
+          : new Date();
+        const dateIso = isNaN(parsedDate.getTime())
+          ? new Date().toISOString()
+          : parsedDate.toISOString();
+
+        if (input.operationType === "SEJOUR_CHAMBRE") {
+          const roomNum = input.roomNumber || 1;
+          const room =
+            state.rooms.find((r) => r.roomNumber === roomNum) || state.rooms[0];
+          const stayType: Stay["stayType"] =
+            input.stayType === "PASSAGE_3H" && room.allowPassage3h
+              ? "PASSAGE_3H"
+              : "NUITEE";
+          const nights =
+            stayType === "PASSAGE_3H" ? 1 : Math.max(1, input.nightsCount || 1);
+
+          const grossCost =
+            stayType === "PASSAGE_3H"
+              ? room.passagePrice
+              : room.nightPrice * nights;
+
+          const cleanDiscount =
+            room.roomNumber <= 3 && stayType !== "PASSAGE_3H"
+              ? Math.min(
+                  grossCost,
+                  Math.max(0, Math.round(input.discountAmount || 0))
+                )
+              : 0;
+          const netAmount =
+            typeof input.amount === "number" && input.amount > 0
+              ? Math.max(0, Math.round(input.amount))
+              : Math.max(0, grossCost - cleanDiscount);
+
+          const stayId = `stay-hist-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const guestName = input.guestName?.trim() || "Client Hôtel RHR";
+          const guestPhone = input.guestPhone?.trim() || "+225 07 00 00 00 00";
+          const discountReason = input.discountReason?.trim() || undefined;
+
+          const stayObj: Stay = {
+            id: stayId,
+            roomId: room.id,
+            roomNumber: room.roomNumber,
+            guestName,
+            guestPhone,
+            stayType,
+            status: "TERMINE",
+            checkIn: dateIso,
+            expectedCheckOut: dateIso,
+            actualCheckOut: dateIso,
+            nightsCount: nights,
+            baseRate:
+              stayType === "PASSAGE_3H" ? room.passagePrice : room.nightPrice,
+            discountAmount: cleanDiscount > 0 ? cleanDiscount : undefined,
+            discountReason: cleanDiscount > 0 ? discountReason : undefined,
+            depositAmount: netAmount,
+            depositMethod: input.paymentMethod,
+            notes:
+              input.description?.trim() ||
+              "Opération enregistrée dans l'historique Gérant Hôtel",
+            createdBy: gerantUser.id,
+            createdAt: dateIso,
+          };
+
+          const baseDesc =
+            stayType === "PASSAGE_3H"
+              ? `Passage 3H — ${room.name} (${guestName})`
+              : `${nights} Nuitée(s) — ${room.name} (${guestName})`;
+          const fullDesc =
+            cleanDiscount > 0
+              ? `${baseDesc} — Réduction Ch.${room.roomNumber} : -${cleanDiscount.toLocaleString("fr-FR")} F${discountReason ? ` (${discountReason})` : ""}`
+              : baseDesc;
+
+          const folioLine: RoomFolioItem = {
+            id: `fol-hist-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            stayId,
+            roomNumber: room.roomNumber,
+            description: fullDesc,
+            category: "HEBERGEMENT",
+            amount: netAmount,
+            isPaid: true,
+            createdAt: dateIso,
+            createdBy: gerantUser.id,
+          };
+
+          const tx: Transaction = {
+            id: `tx-hist-htl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            reference: `HTL-${String(state.transactions.length + 1).padStart(3, "0")}`,
+            type: "ENCAISSEMENT",
+            pole: "HOTEL",
+            vault:
+              input.paymentMethod === "ESPECES"
+                ? "CAISSE_ESPECES"
+                : "CAISSE_MOBILE_MONEY",
+            paymentMethod: input.paymentMethod,
+            amount: netAmount,
+            description: `${fullDesc}${input.description?.trim() ? ` · ${input.description.trim()}` : ""}`,
+            relatedEntityId: stayId,
+            createdBy: gerantUser.id,
+            createdByName: gerantUser.fullName,
+            createdAt: dateIso,
+          };
+
+          set((prev) => ({
+            stays: [stayObj, ...prev.stays],
+            folioItems: [folioLine, ...prev.folioItems],
+            transactions: [tx, ...prev.transactions],
+          }));
+
+          get().enqueueSyncOperation("stays", "INSERT", {
+            id: stayObj.id,
+            roomId: stayObj.roomId,
+            guestName: stayObj.guestName,
+            guestPhone: stayObj.guestPhone,
+            stayType: stayObj.stayType,
+            status: stayObj.status,
+            checkIn: stayObj.checkIn,
+            expectedCheckOut: stayObj.expectedCheckOut,
+            actualCheckOut: stayObj.actualCheckOut,
+            nightsCount: stayObj.nightsCount,
+            depositAmount: stayObj.depositAmount,
+            depositMethod: stayObj.depositMethod,
+            createdBy: stayObj.createdBy,
+            notes: stayObj.notes,
+          });
+
+          get().enqueueSyncOperation("transactions", "INSERT", {
+            id: tx.id,
+            reference: tx.reference,
+            type: tx.type,
+            pole: tx.pole,
+            vault: tx.vault,
+            paymentMethod: tx.paymentMethod,
+            amount: tx.amount,
+            description: tx.description,
+            relatedEntityId: tx.relatedEntityId,
+            createdBy: tx.createdBy,
+            createdByName: tx.createdByName,
+            createdAt: tx.createdAt,
+          });
+
+          return {
+            success: true,
+            transaction: tx,
+            stay: stayObj,
+          };
+        } else {
+          // DEPENSE_HOTEL
+          const cleanAmount = Math.max(1, Math.round(input.amount || 0));
+          const catLabel = input.expenseCategory || "Entretien & Charges Hôtel";
+          const descText =
+            input.description?.trim() || "Dépense opérationnelle Gérant Hôtel";
+
+          const tx: Transaction = {
+            id: `tx-hist-dep-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            reference: `DEP-${String(state.transactions.length + 1).padStart(3, "0")}`,
+            type: "DEPENSE",
+            pole: "MAINTENANCE",
+            vault:
+              input.paymentMethod === "ESPECES"
+                ? "CAISSE_ESPECES"
+                : "CAISSE_MOBILE_MONEY",
+            paymentMethod: input.paymentMethod,
+            expenseFundSource: input.expenseFundSource || "CAISSE_DU_JOUR",
+            amount: cleanAmount,
+            description: `[${catLabel}] ${descText}`,
+            createdBy: gerantUser.id,
+            createdByName: gerantUser.fullName,
+            createdAt: dateIso,
+          };
+
+          set((prev) => ({
+            transactions: [tx, ...prev.transactions],
+          }));
+
+          get().enqueueSyncOperation("transactions", "INSERT", {
+            id: tx.id,
+            reference: tx.reference,
+            type: tx.type,
+            pole: tx.pole,
+            vault: tx.vault,
+            paymentMethod: tx.paymentMethod,
+            amount: tx.amount,
+            fundSource: tx.expenseFundSource,
+            description: tx.description,
+            createdBy: tx.createdBy,
+            createdByName: tx.createdByName,
+            createdAt: tx.createdAt,
+          });
+
+          return {
+            success: true,
+            transaction: tx,
+          };
+        }
+      },
+
+      deleteHotelTransaction: (transactionId) => {
+        const state = get();
+        const targetTx = state.transactions.find((t) => t.id === transactionId);
+        if (!targetTx) return;
+
+        const relatedStayId = targetTx.relatedEntityId;
+        set((prev) => ({
+          transactions: prev.transactions.filter((t) => t.id !== transactionId),
+          stays: relatedStayId
+            ? prev.stays.filter(
+                (s) => !(s.id === relatedStayId && s.id.startsWith("stay-hist-"))
+              )
+            : prev.stays,
+          folioItems: relatedStayId
+            ? prev.folioItems.filter(
+                (f) => !(f.stayId === relatedStayId && f.id.startsWith("fol-hist-"))
+              )
+            : prev.folioItems,
+        }));
+
+        get().enqueueSyncOperation("transactions", "DELETE", {
+          id: transactionId,
+        });
+        if (relatedStayId && relatedStayId.startsWith("stay-hist-")) {
+          get().enqueueSyncOperation("stays", "DELETE", {
+            id: relatedStayId,
+          });
+        }
       },
 
       // =======================================================================

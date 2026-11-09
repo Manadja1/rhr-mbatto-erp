@@ -257,6 +257,62 @@ export async function POST(request: Request) {
             );
           }
           processed++;
+        } else if (table === "stays" && recordId) {
+          if (action === "INSERT") {
+            await pool.query(
+              `INSERT INTO public.stays (id, room_id, client_name, client_phone, stay_type, status, check_in, expected_check_out, actual_check_out, nights_count, deposit_paid, deposit_method, created_by, notes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+               ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, deposit_paid = EXCLUDED.deposit_paid`,
+              [
+                recordId,
+                sanitizeText(p.roomId || "room-1", 40),
+                sanitizeText(p.clientName || p.guestName || "Client RHR", 120),
+                sanitizeText(p.clientPhone || p.guestPhone || "", 40),
+                sanitizeText(p.stayType || "NUITEE", 30),
+                sanitizeText(p.status || "ACTIF", 30),
+                p.checkIn || new Date().toISOString(),
+                p.expectedCheckOut || new Date().toISOString(),
+                p.actualCheckOut || null,
+                Math.max(1, Math.round(Number(p.nightsCount || 1))),
+                Math.max(0, Math.round(Number(p.depositPaid || p.depositAmount || 0))),
+                sanitizeText(p.depositMethod || "ESPECES", 30),
+                sanitizeText(p.createdBy || "usr-hotel-03", 60),
+                sanitizeText(p.notes || "", 240),
+              ]
+            );
+          } else if (action === "UPDATE") {
+            if (p.status) {
+              await pool.query(
+                `UPDATE public.stays SET status = $2 WHERE id = $1`,
+                [recordId, sanitizeText(p.status, 30)]
+              );
+            }
+          }
+          processed++;
+        } else if (table === "transactions" && recordId) {
+          if (action === "INSERT") {
+            await pool.query(
+              `INSERT INTO public.transactions (id, reference, type, pole, vault, payment_method, expense_fund_source, amount, description, related_entity_id, created_by, created_by_name, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+               ON CONFLICT (id) DO NOTHING`,
+              [
+                recordId,
+                sanitizeText(p.reference || `TX-${Date.now()}`, 40),
+                sanitizeText(p.type || "ENCAISSEMENT", 30),
+                sanitizeText(p.pole || "HOTEL", 30),
+                sanitizeText(p.vault || "CAISSE_ESPECES", 30),
+                sanitizeText(p.paymentMethod || "ESPECES", 30),
+                p.fundSource ? sanitizeText(p.fundSource, 30) : null,
+                Math.max(1, Math.round(Number(p.amount || 1))),
+                sanitizeText(p.description || "Opération RHR", 240),
+                p.relatedEntityId ? sanitizeText(p.relatedEntityId, 80) : null,
+                sanitizeText(p.createdBy || "usr-hotel-03", 60),
+                sanitizeText(p.createdByName || "Gérant Hôtel", 100),
+                p.createdAt || new Date().toISOString(),
+              ]
+            );
+          }
+          processed++;
         } else {
           processed++;
         }

@@ -31,6 +31,7 @@ export default function DashboardPage() {
     currentUser,
     waitresses,
     posOrders,
+    stays,
     transactions,
     fixedCosts,
     cashClosures,
@@ -714,6 +715,121 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* =====================================================================
+          4B. POINT FINANCIER MENSUEL DEPUIS JANVIER 2026 (HÔTEL & GLOBAL)
+      ===================================================================== */}
+      <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4">
+          <div>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-rhr-burgundy">
+              Suivi Rétroactif &amp; Mensuel (Année 2026)
+            </span>
+            <h2 className="text-lg font-black text-rhr-dark">
+              Point Financier de Chaque Mois depuis Janvier 2026 (Opérations Gérant Hôtel)
+            </h2>
+            <p className="text-xs text-gray-500">
+              Synthèse mensuelle des recettes chambres, réductions accordées
+              (Chambres 1 à 3), dépenses gérant et résultat net mois par mois.
+            </p>
+          </div>
+
+          <Link
+            href="/hotel"
+            className="inline-flex items-center gap-2 rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-4 py-2 text-xs font-extrabold text-white shadow-rhr transition"
+          >
+            <BedDouble className="h-4 w-4" />
+            <span>Saisir / Gérer les Opérations Hôtel depuis Janvier 2026</span>
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 bg-rhr-surface text-[10px] font-extrabold uppercase text-gray-500">
+                <th className="py-3 px-3 rounded-tl-xl">Mois (2026)</th>
+                <th className="py-3 px-3 text-center">Nb Séjours Hôtel</th>
+                <th className="py-3 px-3 text-right">
+                  Réductions Accordées (Ch. 1-3)
+                </th>
+                <th className="py-3 px-3 text-right">Recettes Hôtel (+)</th>
+                <th className="py-3 px-3 text-right">Dépenses Hôtel (-)</th>
+                <th className="py-3 px-3 text-right rounded-tr-xl">
+                  Point Financier Net Hôtel
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[
+                { key: "2026-01", label: "Janvier 2026" },
+                { key: "2026-02", label: "Février 2026" },
+                { key: "2026-03", label: "Mars 2026" },
+                { key: "2026-04", label: "Avril 2026" },
+                { key: "2026-05", label: "Mai 2026" },
+                { key: "2026-06", label: "Juin 2026" },
+                { key: "2026-07", label: "Juillet 2026" },
+                { key: "2026-08", label: "Août 2026" },
+                { key: "2026-09", label: "Septembre 2026" },
+                { key: "2026-10", label: "Octobre 2026" },
+                { key: "2026-11", label: "Novembre 2026" },
+                { key: "2026-12", label: "Décembre 2026" },
+              ].map((m) => {
+                const mTxs = transactions.filter(
+                  (t) =>
+                    (t.pole === "HOTEL" || t.pole === "MAINTENANCE") &&
+                    t.createdAt.startsWith(m.key)
+                );
+                const mStays = stays.filter((s) => s.checkIn.startsWith(m.key));
+                const rev = mTxs
+                  .filter((t) => t.type === "ENCAISSEMENT")
+                  .reduce((s, t) => s + t.amount, 0);
+                const exp = mTxs
+                  .filter((t) => t.type === "DEPENSE")
+                  .reduce((s, t) => s + t.amount, 0);
+                const disc = mStays.reduce(
+                  (s, st) => s + (st.discountAmount || 0),
+                  0
+                );
+                const net = rev - exp;
+
+                return (
+                  <tr key={m.key} className="hover:bg-gray-50 transition">
+                    <td className="py-2.5 px-3 font-extrabold text-rhr-dark">
+                      {m.label}
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-bold text-gray-700">
+                      {mStays.length}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-amber-700">
+                      {disc > 0 ? `- ${formatCFA(disc)}` : "0 F"}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-emerald-700">
+                      {formatCFA(rev)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-rhr-burgundy">
+                      {exp > 0 ? `- ${formatCFA(exp)}` : "0 F"}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <span
+                        className={cn(
+                          "inline-block rounded-lg px-2.5 py-0.5 font-black",
+                          net > 0
+                            ? "bg-emerald-100 text-emerald-900"
+                            : net < 0
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-600"
+                        )}
+                      >
+                        {formatCFA(net)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

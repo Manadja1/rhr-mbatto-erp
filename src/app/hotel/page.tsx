@@ -24,6 +24,11 @@ import {
   LogOut,
   RefreshCw,
   FileText,
+  Tag,
+  TrendingUp,
+  Download,
+  Trash2,
+  BarChart3,
 } from "lucide-react";
 import {
   useRhrStore,
@@ -76,14 +81,20 @@ export default function HotelPage() {
     checkoutRoom,
     markRoomClean,
     addHotelExpense,
+    applyRoomDiscount,
+    recordHistoricalHotelOperation,
+    deleteHotelTransaction,
   } = useRhrStore();
 
   const [nowMs, setNowMs] = useState<number>(Date.now());
   const [activeTab, setActiveTab] = useState<
-    "COCKPIT" | "CALENDRIER_RESA" | "DEPENSES_ENTRETIEN"
+    | "COCKPIT"
+    | "CALENDRIER_RESA"
+    | "DEPENSES_ENTRETIEN"
+    | "HISTORIQUE_MENSUEL"
   >("COCKPIT");
 
-  // Modal 1 : Check-In ou Réservation avec Acompte
+  // Modal 1 : Check-In ou Réservation avec Acompte + Réduction Chambres 1 à 3
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
   const [selectedRoomIdForCheckIn, setSelectedRoomIdForCheckIn] =
     useState<string>("room-3");
@@ -97,15 +108,23 @@ export default function HotelPage() {
   const [checkInDate, setCheckInDate] = useState<string>(
     new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
+  const [checkInDiscountAmount, setCheckInDiscountAmount] = useState<number>(0);
+  const [checkInDiscountReason, setCheckInDiscountReason] = useState<string>("");
   const [depositAmount, setDepositAmount] = useState<number>(15000);
   const [depositMethod, setDepositMethod] =
     useState<PaymentMethod>("ESPECES");
   const [stayNotes, setStayNotes] = useState("");
 
-  // Modal 2 : Folio Détaillé de la Chambre & Facturation Croisée
+  // Modal 2 : Folio Détaillé de la Chambre & Facturation Croisée + Réduction Ch. 1 à 3
   const [folioRoomId, setFolioRoomId] = useState<string | null>(null);
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] =
     useState<PaymentMethod>("ESPECES");
+  const [folioDiscountInput, setFolioDiscountInput] = useState<number>(0);
+  const [folioDiscountReasonInput, setFolioDiscountReasonInput] =
+    useState<string>("");
+  const [folioDiscountSuccess, setFolioDiscountSuccess] = useState<
+    string | null
+  >(null);
 
   // Modal 3 : Complément d'Acompte en 1 clic sur Réservation
   const [depositModalStay, setDepositModalStay] = useState<Stay | null>(null);
@@ -122,9 +141,12 @@ export default function HotelPage() {
   >(null);
 
   // Formulaire Dépenses d'Entretien Hôtel
-  const [expCategory, setExpCategory] = useState("Eau de Javel & Détergents");
+  const [expCategory, setExpCategory] = useState("Eau de Javel, Savons & Détergents");
   const [expDescription, setExpDescription] = useState("");
   const [expAmount, setExpAmount] = useState<number>(2500);
+  const [expDate, setExpDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
   const [expFundSource, setExpFundSource] = useState<
     "CAISSE_DU_JOUR" | "FONDS_SEPARE"
   >("CAISSE_DU_JOUR");
@@ -134,6 +156,37 @@ export default function HotelPage() {
     undefined
   );
   const [expSuccessBanner, setExpSuccessBanner] = useState<string | null>(null);
+
+  // Onglet 4 : Historique des Opérations du Gérant depuis Janvier 2026 & Point Financier Mensuel
+  const [histOpType, setHistOpType] = useState<
+    "SEJOUR_CHAMBRE" | "DEPENSE_HOTEL"
+  >("SEJOUR_CHAMBRE");
+  const [histDate, setHistDate] = useState<string>("2026-01-15");
+  const [histRoomNumber, setHistRoomNumber] = useState<number>(1);
+  const [histStayType, setHistStayType] = useState<"NUITEE" | "PASSAGE_3H">(
+    "NUITEE"
+  );
+  const [histNights, setHistNights] = useState<number>(1);
+  const [histClientName, setHistClientName] = useState<string>("");
+  const [histClientPhone, setHistClientPhone] = useState<string>("+225 07 ");
+  const [histDiscountAmount, setHistDiscountAmount] = useState<number>(0);
+  const [histDiscountReason, setHistDiscountReason] = useState<string>("");
+  const [histPaymentMethod, setHistPaymentMethod] =
+    useState<PaymentMethod>("ESPECES");
+  const [histExpCategory, setHistExpCategory] = useState<string>(
+    "Eau de Javel, Savons & Détergents"
+  );
+  const [histExpDesc, setHistExpDesc] = useState<string>("");
+  const [histExpAmount, setHistExpAmount] = useState<number>(3000);
+  const [histExpFundSource, setHistExpFundSource] = useState<
+    "CAISSE_DU_JOUR" | "FONDS_SEPARE"
+  >("CAISSE_DU_JOUR");
+  const [histNotes, setHistNotes] = useState<string>("");
+  const [histSuccessBanner, setHistSuccessBanner] = useState<string | null>(
+    null
+  );
+  const [selectedMonthFilter, setSelectedMonthFilter] =
+    useState<string>("ALL_2026");
 
   // Horloge temps réel chaque seconde pour les Passages 3H
   useEffect(() => {
@@ -145,10 +198,25 @@ export default function HotelPage() {
   const selectedRoomForCheckIn =
     rooms.find((r) => r.id === selectedRoomIdForCheckIn) || rooms[0];
 
-  const computedCheckInTotal =
+  const isDiscountEligibleRoom =
+    selectedRoomForCheckIn.roomNumber <= 3 && stayType !== "PASSAGE_3H";
+
+  const computedCheckInGross =
     stayType === "PASSAGE_3H"
       ? selectedRoomForCheckIn.passagePrice
       : selectedRoomForCheckIn.nightPrice * Math.max(1, nightsCount);
+
+  const effectiveCheckInDiscount = isDiscountEligibleRoom
+    ? Math.min(
+        computedCheckInGross,
+        Math.max(0, Math.round(checkInDiscountAmount || 0))
+      )
+    : 0;
+
+  const computedCheckInTotal = Math.max(
+    0,
+    computedCheckInGross - effectiveCheckInDiscount
+  );
 
   const computedCheckInRemaining = Math.max(
     0,
@@ -167,6 +235,8 @@ export default function HotelPage() {
     setSelectedRoomIdForCheckIn(room.id);
     setStayType(effectiveType);
     setNightsCount(1);
+    setCheckInDiscountAmount(0);
+    setCheckInDiscountReason("");
     setGuestName("");
     setGuestPhone("+225 07 ");
     setGuestIdNumber("");
@@ -194,6 +264,8 @@ export default function HotelPage() {
       stayType,
       checkInDateIso: stayType === "RESERVATION" ? checkInDate : undefined,
       nightsCount,
+      discountAmount: effectiveCheckInDiscount,
+      discountReason: checkInDiscountReason,
       depositAmount,
       depositMethod,
       notes: stayNotes,
@@ -384,6 +456,33 @@ export default function HotelPage() {
     reader.readAsDataURL(file);
   };
 
+  // Synchroniser les champs de réduction lorsqu'on ouvre le Folio d'une chambre
+  useEffect(() => {
+    if (activeFolioStay) {
+      setFolioDiscountInput(activeFolioStay.discountAmount || 0);
+      setFolioDiscountReasonInput(activeFolioStay.discountReason || "");
+      setFolioDiscountSuccess(null);
+    }
+  }, [activeFolioStay?.id]);
+
+  // Appliquer ou modifier une réduction sur un séjour actif (Chambres 1 à 3)
+  const handleApplyFolioDiscount = () => {
+    if (!activeFolioStay || !activeFolioRoom) return;
+    const res = applyRoomDiscount({
+      stayId: activeFolioStay.id,
+      discountAmount: folioDiscountInput,
+      discountReason: folioDiscountReasonInput,
+    });
+    if (res.success) {
+      setFolioDiscountSuccess(
+        folioDiscountInput > 0
+          ? `Réduction de ${formatCFA(folioDiscountInput)} appliquée avec succès sur ${activeFolioRoom.name}.`
+          : `Réduction retirée — tarif normal rétabli.`
+      );
+      setTimeout(() => setFolioDiscountSuccess(null), 4000);
+    }
+  };
+
   // Enregistrement d'une dépense d'entretien hôtel
   const handleAddHotelExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -397,6 +496,7 @@ export default function HotelPage() {
       paymentMethod: expPaymentMethod,
       fundSource: expFundSource,
       receiptPhotoUrl: expPhotoPreview,
+      operationDateIso: expDate ? `${expDate}T12:00:00` : undefined,
     });
 
     setExpDescription("");
@@ -410,6 +510,72 @@ export default function HotelPage() {
       })`
     );
     setTimeout(() => setExpSuccessBanner(null), 5000);
+  };
+
+  // Calculs pour le formulaire de saisie historique (Depuis Janvier 2026)
+  const selectedHistRoom =
+    rooms.find((r) => r.roomNumber === histRoomNumber) || rooms[0];
+  const histEffectiveStayType =
+    histStayType === "PASSAGE_3H" && !selectedHistRoom.allowPassage3h
+      ? "NUITEE"
+      : histStayType;
+  const histGrossRoomCost =
+    histEffectiveStayType === "PASSAGE_3H"
+      ? selectedHistRoom.passagePrice
+      : selectedHistRoom.nightPrice * Math.max(1, histNights);
+  const histCanDiscount =
+    selectedHistRoom.roomNumber <= 3 && histEffectiveStayType !== "PASSAGE_3H";
+  const histEffectiveDiscount = histCanDiscount
+    ? Math.min(histGrossRoomCost, Math.max(0, Math.round(histDiscountAmount || 0)))
+    : 0;
+  const histNetRoomAmount = Math.max(0, histGrossRoomCost - histEffectiveDiscount);
+
+  const handleRecordHistoricalOpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (histOpType === "SEJOUR_CHAMBRE") {
+      const res = recordHistoricalHotelOperation({
+        operationType: "SEJOUR_CHAMBRE",
+        operationDateIso: histDate,
+        roomNumber: selectedHistRoom.roomNumber,
+        stayType: histEffectiveStayType,
+        nightsCount: histEffectiveStayType === "PASSAGE_3H" ? 1 : histNights,
+        guestName: histClientName.trim() || `Client Ch.${selectedHistRoom.roomNumber}`,
+        guestPhone: histClientPhone.trim() || "+225 07 00 00 00 00",
+        discountAmount: histEffectiveDiscount,
+        discountReason: histDiscountReason,
+        amount: histNetRoomAmount,
+        paymentMethod: histPaymentMethod,
+        description: histNotes,
+      });
+      if (res.success && res.transaction) {
+        setHistClientName("");
+        setHistDiscountAmount(0);
+        setHistDiscountReason("");
+        setHistNotes("");
+        setHistSuccessBanner(
+          `Opération Hôtel du ${histDate} enregistrée : Ch.${selectedHistRoom.roomNumber} (${formatCFA(res.transaction.amount)})${histEffectiveDiscount > 0 ? ` avec réduction de -${formatCFA(histEffectiveDiscount)}` : ""}`
+        );
+        setTimeout(() => setHistSuccessBanner(null), 5000);
+      }
+    } else {
+      if (!histExpDesc.trim() || histExpAmount <= 0) return;
+      const res = recordHistoricalHotelOperation({
+        operationType: "DEPENSE_HOTEL",
+        operationDateIso: histDate,
+        amount: histExpAmount,
+        paymentMethod: histPaymentMethod,
+        expenseCategory: histExpCategory,
+        expenseFundSource: histExpFundSource,
+        description: histExpDesc,
+      });
+      if (res.success && res.transaction) {
+        setHistExpDesc("");
+        setHistSuccessBanner(
+          `Dépense Gérant Hôtel du ${histDate} enregistrée : -${formatCFA(res.transaction.amount)} (${histExpCategory})`
+        );
+        setTimeout(() => setHistSuccessBanner(null), 5000);
+      }
+    }
   };
 
   // Statistiques strictement limitées au Pôle Hôtel (Pas de CA global complexe exposé au Gérant Hôtel)
@@ -437,6 +603,141 @@ export default function HotelPage() {
   const hotelMaintenanceExpenses = transactions.filter(
     (t) => t.type === "DEPENSE" && (t.pole === "MAINTENANCE" || t.pole === "HOTEL")
   );
+
+  // =========================================================================
+  // POINT FINANCIER MENSUEL DEPUIS JANVIER 2026 (2026-01 -> AUJOURD'HUI)
+  // =========================================================================
+  const MONTHS_2026 = [
+    { key: "2026-01", label: "Janvier 2026", defaultDate: "2026-01-15" },
+    { key: "2026-02", label: "Février 2026", defaultDate: "2026-02-15" },
+    { key: "2026-03", label: "Mars 2026", defaultDate: "2026-03-15" },
+    { key: "2026-04", label: "Avril 2026", defaultDate: "2026-04-15" },
+    { key: "2026-05", label: "Mai 2026", defaultDate: "2026-05-15" },
+    { key: "2026-06", label: "Juin 2026", defaultDate: "2026-06-15" },
+    { key: "2026-07", label: "Juillet 2026", defaultDate: "2026-07-15" },
+    { key: "2026-08", label: "Août 2026", defaultDate: "2026-08-15" },
+    { key: "2026-09", label: "Septembre 2026", defaultDate: "2026-09-15" },
+    { key: "2026-10", label: "Octobre 2026", defaultDate: "2026-10-15" },
+    { key: "2026-11", label: "Novembre 2026", defaultDate: "2026-11-09" },
+    { key: "2026-12", label: "Décembre 2026", defaultDate: "2026-12-15" },
+  ];
+
+  const monthlyHotelSummary = MONTHS_2026.map((m) => {
+    const monthTxs = hotelTransactions.filter((t) =>
+      t.createdAt.startsWith(m.key)
+    );
+    const monthStays = stays.filter((s) => s.checkIn.startsWith(m.key));
+
+    const cashIn = monthTxs
+      .filter((t) => t.type === "ENCAISSEMENT" && t.vault === "CAISSE_ESPECES")
+      .reduce((acc, t) => acc + t.amount, 0);
+    const momoIn = monthTxs
+      .filter(
+        (t) => t.type === "ENCAISSEMENT" && t.vault === "CAISSE_MOBILE_MONEY"
+      )
+      .reduce((acc, t) => acc + t.amount, 0);
+    const totalRevenue = cashIn + momoIn;
+
+    const totalExpenses = monthTxs
+      .filter((t) => t.type === "DEPENSE")
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const totalDiscounts = monthStays.reduce(
+      (acc, s) => acc + (s.discountAmount || 0),
+      0
+    );
+
+    const netBalance = totalRevenue - totalExpenses;
+
+    return {
+      ...m,
+      staysCount: monthStays.length,
+      txCount: monthTxs.length,
+      cashIn,
+      momoIn,
+      totalRevenue,
+      totalExpenses,
+      totalDiscounts,
+      netBalance,
+    };
+  });
+
+  const annual2026Totals = monthlyHotelSummary.reduce(
+    (acc, m) => ({
+      staysCount: acc.staysCount + m.staysCount,
+      txCount: acc.txCount + m.txCount,
+      cashIn: acc.cashIn + m.cashIn,
+      momoIn: acc.momoIn + m.momoIn,
+      totalRevenue: acc.totalRevenue + m.totalRevenue,
+      totalExpenses: acc.totalExpenses + m.totalExpenses,
+      totalDiscounts: acc.totalDiscounts + m.totalDiscounts,
+      netBalance: acc.netBalance + m.netBalance,
+    }),
+    {
+      staysCount: 0,
+      txCount: 0,
+      cashIn: 0,
+      momoIn: 0,
+      totalRevenue: 0,
+      totalExpenses: 0,
+      totalDiscounts: 0,
+      netBalance: 0,
+    }
+  );
+
+  const filteredHistoricalTransactions = hotelTransactions
+    .filter((t) =>
+      selectedMonthFilter === "ALL_2026"
+        ? t.createdAt.startsWith("2026-")
+        : t.createdAt.startsWith(selectedMonthFilter)
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+  const handleExportHotelMonthlyCsv = () => {
+    const headers = [
+      "Mois",
+      "Nb Sejours/Passages",
+      "Reductions Ch. 1 a 3 (FCFA)",
+      "Recettes Especes (FCFA)",
+      "Recettes Mobile Money (FCFA)",
+      "Total Recettes Hotel (FCFA)",
+      "Total Depenses Gerant (FCFA)",
+      "Point Financier Net du Mois (FCFA)",
+    ];
+    const rows = monthlyHotelSummary.map((m) => [
+      m.label,
+      m.staysCount,
+      m.totalDiscounts,
+      m.cashIn,
+      m.momoIn,
+      m.totalRevenue,
+      m.totalExpenses,
+      m.netBalance,
+    ]);
+    rows.push([
+      "TOTAL CUMULE 2026 (Depuis Janvier)",
+      annual2026Totals.staysCount,
+      annual2026Totals.totalDiscounts,
+      annual2026Totals.cashIn,
+      annual2026Totals.momoIn,
+      annual2026Totals.totalRevenue,
+      annual2026Totals.totalExpenses,
+      annual2026Totals.netBalance,
+    ]);
+    const csvContent =
+      "\uFEFF" +
+      [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `RHR_Point_Financier_Mensuel_Hotel_2026.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -486,6 +787,15 @@ export default function HotelPage() {
           >
             <Calendar className="h-4 w-4" />
             <span>Nouvelle Réservation + Acompte</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("HISTORIQUE_MENSUEL")}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 px-4 py-2.5 text-xs font-extrabold text-emerald-300 transition"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Saisie &amp; Point Mensuel (Depuis Janv. 2026)</span>
           </button>
         </div>
       </div>
@@ -580,7 +890,7 @@ export default function HotelPage() {
           BARRE D'ONGLETS DU PÔLE HÔTEL
       ===================================================================== */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-3">
-        <div className="inline-flex rounded-2xl bg-white border border-gray-200 p-1 shadow-sm">
+        <div className="flex flex-wrap rounded-2xl bg-white border border-gray-200 p-1 shadow-sm gap-1">
           <button
             type="button"
             onClick={() => setActiveTab("COCKPIT")}
@@ -626,6 +936,22 @@ export default function HotelPage() {
             <span>
               3. Dépenses d&apos;Entretien Hôtel (
               {hotelMaintenanceExpenses.length})
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("HISTORIQUE_MENSUEL")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
+              activeTab === "HISTORIQUE_MENSUEL"
+                ? "bg-rhr-burgundy text-white shadow"
+                : "text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+            )}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>
+              4. Opérations Gérant &amp; Point Mensuel (Depuis Janv. 2026)
             </span>
           </button>
         </div>
@@ -869,6 +1195,25 @@ export default function HotelPage() {
                           <span>Ouvrir Folio</span>
                         </span>
                       </div>
+
+                      {/* Indicateur Réduction Client accordée (Chambres 1 à 3) */}
+                      {stay.discountAmount && stay.discountAmount > 0 ? (
+                        <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-100/90 border border-emerald-300 px-3 py-1.5 text-xs font-bold text-emerald-950">
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Tag className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                            <span className="truncate">
+                              Réduction accordée
+                              {stay.discountReason
+                                ? ` (${stay.discountReason})`
+                                : ""}{" "}
+                              :
+                            </span>
+                          </span>
+                          <span className="font-black text-emerald-800 whitespace-nowrap shrink-0">
+                            - {formatCFA(stay.discountAmount)}
+                          </span>
+                        </div>
+                      ) : null}
 
                       {/* Indicateur Consommations Bar & Restaurant transférées */}
                       {barRestoTransferred > 0 && (
@@ -1249,6 +1594,20 @@ export default function HotelPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Date de l&apos;opération (depuis Janvier 2026)
+                </label>
+                <input
+                  type="date"
+                  min="2026-01-01"
+                  required
+                  value={expDate}
+                  onChange={(e) => setExpDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -1457,6 +1816,705 @@ export default function HotelPage() {
       )}
 
       {/* =====================================================================
+          ONGLET 4 : OPÉRATIONS DU GÉRANT DEPUIS JANVIER 2026 & POINT FINANCIER MENSUEL
+      ===================================================================== */}
+      {activeTab === "HISTORIQUE_MENSUEL" && (
+        <div className="space-y-6">
+          {/* Bandeau récapitulatif global Janvier 2026 -> Aujourd'hui */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="rounded-2xl bg-white border border-gray-200 p-4 shadow-card">
+              <span className="text-[11px] font-bold uppercase text-gray-500">
+                Total Recettes Hôtel (Depuis Janv. 2026)
+              </span>
+              <div className="text-2xl font-black text-emerald-700 mt-1">
+                {formatCFA(annual2026Totals.totalRevenue)}
+              </div>
+              <span className="text-xs text-gray-500">
+                Espèces : {formatCFA(annual2026Totals.cashIn)} • MoMo :{" "}
+                {formatCFA(annual2026Totals.momoIn)}
+              </span>
+            </div>
+
+            <div className="rounded-2xl bg-white border border-gray-200 p-4 shadow-card">
+              <span className="text-[11px] font-bold uppercase text-gray-500">
+                Réductions Accordées (Chambres 1 à 3)
+              </span>
+              <div className="text-2xl font-black text-amber-600 mt-1">
+                - {formatCFA(annual2026Totals.totalDiscounts)}
+              </div>
+              <span className="text-xs text-gray-500">
+                Sur {annual2026Totals.staysCount} séjour(s) / passage(s) 2026
+              </span>
+            </div>
+
+            <div className="rounded-2xl bg-white border border-gray-200 p-4 shadow-card">
+              <span className="text-[11px] font-bold uppercase text-gray-500">
+                Total Dépenses Gérant Hôtel (2026)
+              </span>
+              <div className="text-2xl font-black text-rhr-burgundy mt-1">
+                - {formatCFA(annual2026Totals.totalExpenses)}
+              </div>
+              <span className="text-xs text-gray-500">
+                Entretien, réparations &amp; charges chambres
+              </span>
+            </div>
+
+            <div className="rounded-2xl bg-rhr-dark text-white border border-rhr-gold/40 p-4 shadow-card">
+              <span className="text-[11px] font-bold uppercase text-rhr-gold">
+                Bénéfice / Point Net Hôtel (2026)
+              </span>
+              <div
+                className={cn(
+                  "text-2xl font-black mt-1",
+                  annual2026Totals.netBalance >= 0
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                )}
+              >
+                {formatCFA(annual2026Totals.netBalance)}
+              </div>
+              <span className="text-xs text-gray-300">
+                Recettes Hôtel - Dépenses Gérant Hôtel
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* COLONNE GAUCHE (5 col) : FORMULAIRE DE SAISIE DES OPÉRATIONS DU GÉRANT DEPUIS JANVIER 2026 */}
+            <div className="lg:col-span-5 rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-5">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-rhr-burgundy">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Saisie Rétroactive &amp; Quotidienne (Depuis Janvier 2026)
+                </span>
+                <h2 className="text-xl font-black text-rhr-dark mt-1">
+                  Enregistrer une Opération du Gérant Hôtel
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Saisissez tous les séjours/passages (avec réduction éventuelle
+                  sur les Chambres 1 à 3) et toutes les dépenses effectuées par
+                  le gérant depuis Janvier 2026.
+                </p>
+              </div>
+
+              {histSuccessBanner && (
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-300 p-3.5 text-xs font-bold text-emerald-950 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>{histSuccessBanner}</span>
+                </div>
+              )}
+
+              {/* Sélecteur Type d'Opération : Séjour Chambre vs Dépense Hôtel */}
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-rhr-surface p-1.5 border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setHistOpType("SEJOUR_CHAMBRE")}
+                  className={cn(
+                    "rounded-xl py-2.5 px-3 text-xs font-extrabold transition flex items-center justify-center gap-1.5",
+                    histOpType === "SEJOUR_CHAMBRE"
+                      ? "bg-rhr-burgundy text-white shadow"
+                      : "text-gray-600 hover:text-rhr-dark"
+                  )}
+                >
+                  <BedDouble className="h-4 w-4 shrink-0" />
+                  <span>1. Recette Chambre (1-5)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistOpType("DEPENSE_HOTEL")}
+                  className={cn(
+                    "rounded-xl py-2.5 px-3 text-xs font-extrabold transition flex items-center justify-center gap-1.5",
+                    histOpType === "DEPENSE_HOTEL"
+                      ? "bg-rhr-dark text-white shadow"
+                      : "text-gray-600 hover:text-rhr-dark"
+                  )}
+                >
+                  <Wrench className="h-4 w-4 shrink-0" />
+                  <span>2. Dépense Gérant Hôtel</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleRecordHistoricalOpSubmit} className="space-y-4">
+                {/* Sélection rapide du mois de 2026 + Date exacte */}
+                <div className="rounded-2xl bg-rhr-surface border border-gray-200 p-3.5 space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1.5">
+                      Accès rapide au mois (Année 2026) :
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {MONTHS_2026.slice(0, 11).map((m) => {
+                        const isActiveMonth = histDate.startsWith(m.key);
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={() => {
+                              setHistDate(m.defaultDate);
+                              setSelectedMonthFilter(m.key);
+                            }}
+                            className={cn(
+                              "rounded-lg px-2.5 py-1 text-[11px] font-bold transition border",
+                              isActiveMonth
+                                ? "bg-rhr-burgundy text-white border-rhr-burgundy shadow-sm"
+                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                            )}
+                          >
+                            {m.label.replace(" 2026", "")}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Date exacte de l&apos;opération (depuis le 01/01/2026) *
+                    </label>
+                    <input
+                      type="date"
+                      min="2026-01-01"
+                      max="2026-12-31"
+                      required
+                      value={histDate}
+                      onChange={(e) => setHistDate(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-black text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {histOpType === "SEJOUR_CHAMBRE" ? (
+                  <>
+                    {/* Choix Chambre 1 à 5 & Formule */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Chambre (1 à 5)
+                        </label>
+                        <select
+                          value={histRoomNumber}
+                          onChange={(e) => {
+                            const num = Number(e.target.value);
+                            setHistRoomNumber(num);
+                            if (num <= 3 && histStayType === "PASSAGE_3H") {
+                              setHistStayType("NUITEE");
+                            }
+                            if (num > 3) {
+                              setHistDiscountAmount(0);
+                              setHistDiscountReason("");
+                            }
+                          }}
+                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-xs font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                        >
+                          {rooms.map((r) => (
+                            <option key={r.id} value={r.roomNumber}>
+                              Chambre {r.roomNumber} ({r.category}) —{" "}
+                              {formatCFA(r.nightPrice)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Formule
+                        </label>
+                        <select
+                          value={histEffectiveStayType}
+                          onChange={(e) =>
+                            setHistStayType(
+                              e.target.value as "NUITEE" | "PASSAGE_3H"
+                            )
+                          }
+                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-xs font-bold text-rhr-burgundy focus:border-rhr-burgundy focus:outline-none"
+                        >
+                          <option value="NUITEE">
+                            Nuitée ({formatCFA(selectedHistRoom.nightPrice)})
+                          </option>
+                          <option
+                            value="PASSAGE_3H"
+                            disabled={!selectedHistRoom.allowPassage3h}
+                          >
+                            {selectedHistRoom.allowPassage3h
+                              ? `Passage 3H (${formatCFA(selectedHistRoom.passagePrice)})`
+                              : "Passage 3H (Ch. 4 & 5 uniquement)"}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Nombre de nuitées & Nom client */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {histEffectiveStayType !== "PASSAGE_3H" && (
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            Nombre de Nuitées
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={60}
+                            value={histNights}
+                            onChange={(e) =>
+                              setHistNights(Math.max(1, Number(e.target.value)))
+                            }
+                            className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                          />
+                        </div>
+                      )}
+                      <div
+                        className={
+                          histEffectiveStayType === "PASSAGE_3H"
+                            ? "sm:col-span-2"
+                            : ""
+                        }
+                      >
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Nom du Client (Facultatif)
+                        </label>
+                        <input
+                          type="text"
+                          value={histClientName}
+                          onChange={(e) => setHistClientName(e.target.value)}
+                          placeholder={`Ex: Client Chambre ${selectedHistRoom.roomNumber}`}
+                          className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* BLOC RÉDUCTION CLIENT POUR CHAMBRES 1 À 3 */}
+                    {histCanDiscount && (
+                      <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
+                            <Tag className="h-3.5 w-3.5 text-rhr-burgundy" />
+                            Réduction Client (Chambre {selectedHistRoom.roomNumber})
+                          </span>
+                          <span className="text-[11px] font-bold text-amber-900">
+                            Tarif normal : {formatCFA(histGrossRoomCost)}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {[0, 1000, 2000, 3000, 5000].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setHistDiscountAmount(preset)}
+                              className={cn(
+                                "rounded-lg px-2.5 py-1 text-[11px] font-extrabold border transition",
+                                histDiscountAmount === preset
+                                  ? "bg-rhr-burgundy text-white border-rhr-burgundy"
+                                  : "bg-white text-gray-700 border-amber-300 hover:bg-amber-100"
+                              )}
+                            >
+                              {preset === 0
+                                ? "0 F (Sans réduction)"
+                                : `- ${formatCFA(preset)}`}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                              Montant de la réduction (FCFA)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={histGrossRoomCost}
+                              step={500}
+                              value={histDiscountAmount}
+                              onChange={(e) =>
+                                setHistDiscountAmount(
+                                  Math.max(0, Number(e.target.value))
+                                )
+                              }
+                              className="w-full rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-black text-rhr-burgundy focus:border-rhr-burgundy focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                              Motif réduction (Optionnel)
+                            </label>
+                            <input
+                              type="text"
+                              value={histDiscountReason}
+                              onChange={(e) =>
+                                setHistDiscountReason(e.target.value)
+                              }
+                              placeholder="Ex: Client fidèle / Remise"
+                              className="w-full rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Montant Net & Mode de règlement */}
+                    <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-950">
+                          Net encaissé pour ce séjour :
+                        </span>
+                        <span className="text-lg font-black text-emerald-700">
+                          {formatCFA(histNetRoomAmount)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Mode d&apos;encaissement
+                        </label>
+                        <select
+                          value={histPaymentMethod}
+                          onChange={(e) =>
+                            setHistPaymentMethod(e.target.value as PaymentMethod)
+                          }
+                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-rhr-dark"
+                        >
+                          <option value="ESPECES">Espèces (Caisse Physique)</option>
+                          <option value="WAVE">Wave Mobile Money</option>
+                          <option value="ORANGE_MONEY">Orange Money</option>
+                          <option value="MTN_MOMO">MTN MoMo</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Formulaire Dépense Historique du Gérant */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Catégorie de dépense Hôtel
+                      </label>
+                      <select
+                        value={histExpCategory}
+                        onChange={(e) => setHistExpCategory(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-bold text-rhr-dark"
+                      >
+                        <option value="Eau de Javel, Savons & Détergents">
+                          Eau de Javel, Savons &amp; Détergents
+                        </option>
+                        <option value="Ampoules, Piles Télécommande & Électricité">
+                          Ampoules, Piles Télécommande &amp; Électricité
+                        </option>
+                        <option value="Draps, Serviettes & Blanchisserie">
+                          Draps, Serviettes &amp; Blanchisserie
+                        </option>
+                        <option value="Entretien Climatisation & Plomberie">
+                          Entretien Climatisation &amp; Plomberie
+                        </option>
+                        <option value="Avance / Prime / Frais Gérant Hôtel">
+                          Avance / Prime / Frais Gérant Hôtel
+                        </option>
+                        <option value="Autre Dépense Hôtel">
+                          Autre Dépense Hôtel
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Détail de la dépense / sortie *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={histExpDesc}
+                        onChange={(e) => setHistExpDesc(e.target.value)}
+                        placeholder="Ex: Réparation serrure Chambre 2 + Achat détergents"
+                        className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm text-rhr-dark"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Montant décaissé (FCFA) *
+                        </label>
+                        <input
+                          type="number"
+                          min={100}
+                          step={100}
+                          required
+                          value={histExpAmount}
+                          onChange={(e) =>
+                            setHistExpAmount(Number(e.target.value))
+                          }
+                          className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm font-black text-rhr-burgundy"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Moyen de paiement
+                        </label>
+                        <select
+                          value={histPaymentMethod}
+                          onChange={(e) =>
+                            setHistPaymentMethod(e.target.value as PaymentMethod)
+                          }
+                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-rhr-dark"
+                        >
+                          <option value="ESPECES">Espèces Physique</option>
+                          <option value="WAVE">Wave Mobile Money</option>
+                          <option value="ORANGE_MONEY">Orange Money</option>
+                          <option value="MTN_MOMO">MTN MoMo</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-rhr transition"
+                >
+                  {histOpType === "SEJOUR_CHAMBRE"
+                    ? `Enregistrer Recette Chambre (${formatCFA(histNetRoomAmount)})`
+                    : `Enregistrer Dépense Gérant (-${formatCFA(histExpAmount)})`}
+                </button>
+              </form>
+            </div>
+
+            {/* COLONNE DROITE (7 col) : TABLEAU DU POINT FINANCIER DE CHAQUE MOIS DEPUIS JANVIER 2026 */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                  <div>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-rhr-burgundy">
+                      Bilan Mensuel d&apos;Exploitation Hôtel (2026)
+                    </span>
+                    <h3 className="text-lg font-black text-rhr-dark">
+                      Point Financier de Chaque Mois (Depuis Janvier 2026)
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Cliquez sur un mois pour filtrer le détail des opérations
+                      enregistrées ci-dessous.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExportHotelMonthlyCsv}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-rhr-dark hover:bg-rhr-burgundy px-3.5 py-2 text-xs font-extrabold text-white transition shadow-sm"
+                  >
+                    <Download className="h-3.5 w-3.5 text-rhr-gold" />
+                    <span>Exporter Excel / CSV (2026)</span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-[10px] font-extrabold uppercase text-gray-500 bg-rhr-surface">
+                        <th className="py-3 px-3 rounded-tl-xl">Mois 2026</th>
+                        <th className="py-3 px-2.5 text-center">Séjours</th>
+                        <th className="py-3 px-2.5 text-right">
+                          Réductions (Ch.1-3)
+                        </th>
+                        <th className="py-3 px-2.5 text-right">
+                          Recettes Hôtel
+                        </th>
+                        <th className="py-3 px-2.5 text-right">
+                          Dépenses Gérant
+                        </th>
+                        <th className="py-3 px-3 text-right rounded-tr-xl">
+                          Point Net du Mois
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-xs">
+                      {monthlyHotelSummary.map((m) => {
+                        const isSelected = selectedMonthFilter === m.key;
+                        return (
+                          <tr
+                            key={m.key}
+                            onClick={() =>
+                              setSelectedMonthFilter(
+                                isSelected ? "ALL_2026" : m.key
+                              )
+                            }
+                            className={cn(
+                              "cursor-pointer transition",
+                              isSelected
+                                ? "bg-rhr-burgundy/10 font-bold"
+                                : "hover:bg-gray-50"
+                            )}
+                          >
+                            <td className="py-3 px-3 font-extrabold text-rhr-dark flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  "h-2 w-2 rounded-full",
+                                  m.txCount > 0
+                                    ? "bg-emerald-500"
+                                    : "bg-gray-300"
+                                )}
+                              />
+                              <span>{m.label}</span>
+                            </td>
+                            <td className="py-3 px-2.5 text-center font-bold text-gray-700">
+                              {m.staysCount}
+                            </td>
+                            <td className="py-3 px-2.5 text-right font-bold text-amber-700">
+                              {m.totalDiscounts > 0
+                                ? `- ${formatCFA(m.totalDiscounts)}`
+                                : "0 F"}
+                            </td>
+                            <td className="py-3 px-2.5 text-right font-black text-emerald-700">
+                              {formatCFA(m.totalRevenue)}
+                            </td>
+                            <td className="py-3 px-2.5 text-right font-bold text-rhr-burgundy">
+                              {m.totalExpenses > 0
+                                ? `- ${formatCFA(m.totalExpenses)}`
+                                : "0 F"}
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <span
+                                className={cn(
+                                  "inline-block rounded-lg px-2.5 py-1 text-xs font-black",
+                                  m.netBalance > 0
+                                    ? "bg-emerald-100 text-emerald-900"
+                                    : m.netBalance < 0
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-600"
+                                )}
+                              >
+                                {formatCFA(m.netBalance)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-rhr-dark text-white font-black text-xs">
+                        <td className="py-3.5 px-3 rounded-bl-xl">
+                          CUMUL ANNUEL 2026
+                        </td>
+                        <td className="py-3.5 px-2.5 text-center">
+                          {annual2026Totals.staysCount}
+                        </td>
+                        <td className="py-3.5 px-2.5 text-right text-amber-300">
+                          - {formatCFA(annual2026Totals.totalDiscounts)}
+                        </td>
+                        <td className="py-3.5 px-2.5 text-right text-emerald-400">
+                          {formatCFA(annual2026Totals.totalRevenue)}
+                        </td>
+                        <td className="py-3.5 px-2.5 text-right text-red-300">
+                          - {formatCFA(annual2026Totals.totalExpenses)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right text-rhr-gold text-sm rounded-br-xl">
+                          {formatCFA(annual2026Totals.netBalance)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              {/* Journal détaillé des opérations du mois sélectionné */}
+              <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-card space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                  <div>
+                    <h4 className="text-base font-black text-rhr-dark">
+                      Journal Détaillé des Opérations du Gérant (
+                      {selectedMonthFilter === "ALL_2026"
+                        ? "Toute l'année 2026"
+                        : MONTHS_2026.find((m) => m.key === selectedMonthFilter)
+                            ?.label || selectedMonthFilter}
+                      )
+                    </h4>
+                    <p className="text-xs text-gray-500">
+                      {filteredHistoricalTransactions.length} opération(s)
+                      enregistrée(s) sur cette période
+                    </p>
+                  </div>
+
+                  {selectedMonthFilter !== "ALL_2026" && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMonthFilter("ALL_2026")}
+                      className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                    >
+                      Voir tous les mois de 2026
+                    </button>
+                  )}
+                </div>
+
+                {filteredHistoricalTransactions.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-xs text-gray-500">
+                    Aucune opération enregistrée pour cette période. Utilisez le
+                    formulaire à gauche pour saisir les opérations du gérant
+                    pour ce mois.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                    {filteredHistoricalTransactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="rounded-2xl border border-gray-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-gray-50/80 transition"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={cn(
+                                "rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase",
+                                tx.type === "ENCAISSEMENT"
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : "bg-red-100 text-red-800"
+                              )}
+                            >
+                              {tx.type === "ENCAISSEMENT"
+                                ? "Recette Chambre"
+                                : "Dépense Gérant"}
+                            </span>
+                            <span className="font-mono text-[11px] font-bold text-gray-500">
+                              {formatDateTime(tx.createdAt)}
+                            </span>
+                            <span className="text-[11px] font-bold text-gray-500">
+                              • {tx.paymentMethod}
+                            </span>
+                          </div>
+                          <div className="text-xs font-bold text-rhr-dark">
+                            {tx.description}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                          <span
+                            className={cn(
+                              "text-sm font-black",
+                              tx.type === "ENCAISSEMENT"
+                                ? "text-emerald-700"
+                                : "text-rhr-burgundy"
+                            )}
+                          >
+                            {tx.type === "ENCAISSEMENT" ? "+" : "-"}{" "}
+                            {formatCFA(tx.amount)}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteHotelTransaction(tx.id)}
+                            title="Supprimer cette opération si saisie par erreur"
+                            className="rounded-lg p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           MODAL 1 : CHECK-IN NUITÉE / PASSAGE 3H / RÉSERVATION AVEC ACOMPTE
       ===================================================================== */}
       {checkInModalOpen && (
@@ -1505,12 +2563,21 @@ export default function HotelPage() {
                         if (effectiveType !== stayType) {
                           setStayType(effectiveType);
                         }
+                        const nextDiscount =
+                          nextRoom.roomNumber <= 3 ? checkInDiscountAmount : 0;
+                        if (nextRoom.roomNumber > 3) {
+                          setCheckInDiscountAmount(0);
+                          setCheckInDiscountReason("");
+                        }
                         setDepositAmount(
                           effectiveType === "PASSAGE_3H"
                             ? nextRoom.passagePrice
                             : effectiveType === "RESERVATION"
                             ? 5000
-                            : nextRoom.nightPrice * nightsCount
+                            : Math.max(
+                                0,
+                                nextRoom.nightPrice * nightsCount - nextDiscount
+                              )
                         );
                       }
                     }}
@@ -1542,12 +2609,19 @@ export default function HotelPage() {
                         | "RESERVATION";
                       setStayType(nextType);
                       if (nextType === "PASSAGE_3H") {
+                        setCheckInDiscountAmount(0);
                         setDepositAmount(selectedRoomForCheckIn.passagePrice);
                       } else if (nextType === "RESERVATION") {
                         setDepositAmount(5000);
                       } else {
                         setDepositAmount(
-                          selectedRoomForCheckIn.nightPrice * nightsCount
+                          Math.max(
+                            0,
+                            selectedRoomForCheckIn.nightPrice * nightsCount -
+                              (selectedRoomForCheckIn.roomNumber <= 3
+                                ? checkInDiscountAmount
+                                : 0)
+                          )
                         );
                       }
                     }}
@@ -1619,7 +2693,15 @@ export default function HotelPage() {
                         const n = Math.max(1, Number(e.target.value));
                         setNightsCount(n);
                         if (stayType === "NUITEE") {
-                          setDepositAmount(selectedRoomForCheckIn.nightPrice * n);
+                          setDepositAmount(
+                            Math.max(
+                              0,
+                              selectedRoomForCheckIn.nightPrice * n -
+                                (selectedRoomForCheckIn.roomNumber <= 3
+                                  ? checkInDiscountAmount
+                                  : 0)
+                            )
+                          );
                         }
                       }}
                       className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm font-bold text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
@@ -1655,11 +2737,98 @@ export default function HotelPage() {
                 </div>
               )}
 
+              {/* =========================================================
+                  FONCTIONNALITÉ DE RÉDUCTION POUR LES CHAMBRES 1 À 3
+              ========================================================= */}
+              {isDiscountEligibleRoom && (
+                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
+                      <Tag className="h-4 w-4 text-rhr-burgundy" />
+                      Réduction Client (Chambre {selectedRoomForCheckIn.roomNumber} — Confort)
+                    </span>
+                    <span className="text-xs font-bold text-amber-900">
+                      Tarif normal : {formatCFA(computedCheckInGross)}
+                    </span>
+                  </div>
+
+                  {/* Boutons rapides de réduction */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[0, 1000, 2000, 3000, 5000].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setCheckInDiscountAmount(preset);
+                          if (stayType === "NUITEE") {
+                            setDepositAmount(
+                              Math.max(0, computedCheckInGross - preset)
+                            );
+                          }
+                        }}
+                        className={cn(
+                          "rounded-lg px-2.5 py-1 text-[11px] font-extrabold border transition",
+                          checkInDiscountAmount === preset
+                            ? "bg-rhr-burgundy text-white border-rhr-burgundy"
+                            : "bg-white text-gray-700 border-amber-300 hover:bg-amber-100"
+                        )}
+                      >
+                        {preset === 0
+                          ? "Aucune (0 F)"
+                          : `- ${formatCFA(preset)}`}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Montant de la réduction (FCFA)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={computedCheckInGross}
+                        step={500}
+                        value={checkInDiscountAmount}
+                        onChange={(e) => {
+                          const val = Math.max(0, Number(e.target.value));
+                          setCheckInDiscountAmount(val);
+                          if (stayType === "NUITEE") {
+                            setDepositAmount(
+                              Math.max(0, computedCheckInGross - val)
+                            );
+                          }
+                        }}
+                        className="w-full rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-sm font-black text-rhr-burgundy focus:border-rhr-burgundy focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Motif / Accord réduction (Optionnel)
+                      </label>
+                      <input
+                        type="text"
+                        value={checkInDiscountReason}
+                        onChange={(e) =>
+                          setCheckInDiscountReason(e.target.value)
+                        }
+                        placeholder="Ex: Client fidèle / Remise Direction"
+                        className="w-full rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-xs text-rhr-dark focus:border-rhr-burgundy focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Acompte ou Règlement Immédiat & Mode de paiement */}
               <div className="rounded-2xl bg-rhr-surface border border-gray-200 p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-gray-600">
-                    Total Hébergement calculé :
+                    {effectiveCheckInDiscount > 0
+                      ? `Total Net Hébergement (après réduction de -${formatCFA(effectiveCheckInDiscount)}) :`
+                      : "Total Hébergement calculé :"}
                   </span>
                   <span className="text-base font-black text-rhr-dark">
                     {formatCFA(computedCheckInTotal)}
@@ -1804,6 +2973,80 @@ export default function HotelPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Contrôle de Réduction en direct pour les Chambres 1 à 3 */}
+                {activeFolioRoom.roomNumber <= 3 &&
+                  activeFolioStay.stayType !== "PASSAGE_3H" && (
+                    <div className="rounded-2xl border border-amber-300 bg-amber-50/70 p-3.5 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5 text-rhr-burgundy" />
+                          Appliquer / Modifier une Réduction (Chambre{" "}
+                          {activeFolioRoom.roomNumber})
+                        </span>
+                        <span className="text-[11px] font-bold text-amber-900">
+                          Tarif de base :{" "}
+                          {formatCFA(
+                            activeFolioRoom.nightPrice *
+                              Math.max(1, activeFolioStay.nightsCount)
+                          )}
+                        </span>
+                      </div>
+
+                      {folioDiscountSuccess && (
+                        <div className="rounded-xl bg-emerald-100 border border-emerald-300 px-3 py-1.5 text-xs font-bold text-emerald-900">
+                          {folioDiscountSuccess}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                        <div className="sm:col-span-4">
+                          <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                            Montant réduction (FCFA)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={
+                              activeFolioRoom.nightPrice *
+                              Math.max(1, activeFolioStay.nightsCount)
+                            }
+                            step={500}
+                            value={folioDiscountInput}
+                            onChange={(e) =>
+                              setFolioDiscountInput(
+                                Math.max(0, Number(e.target.value))
+                              )
+                            }
+                            className="w-full rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-black text-rhr-burgundy"
+                          />
+                        </div>
+                        <div className="sm:col-span-5">
+                          <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                            Motif réduction (optionnel)
+                          </label>
+                          <input
+                            type="text"
+                            value={folioDiscountReasonInput}
+                            onChange={(e) =>
+                              setFolioDiscountReasonInput(e.target.value)
+                            }
+                            placeholder="Ex: Remise client fidèle"
+                            className="w-full rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs text-rhr-dark"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <button
+                            type="button"
+                            onClick={handleApplyFolioDiscount}
+                            className="w-full rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light py-1.5 px-3 text-xs font-extrabold text-white shadow-sm transition"
+                          >
+                            Appliquer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                 <div className="rounded-2xl border border-gray-200 divide-y divide-gray-100">
                   {folioAccommodationLines.map((line) => (
