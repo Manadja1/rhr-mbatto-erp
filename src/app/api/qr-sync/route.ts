@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import os from "os";
 import { PosOrder, InventoryItem } from "@/store/useRhrStore";
+import { getDbPool } from "@/lib/supabase/db";
 
-// Stockage mémoire côté serveur pour synchroniser en temps réel les commandes QR
-// passées depuis le smartphone d'un client vers l'écran Caisse Bar/Resto (/pos)
+// Stockage mémoire + persistance PostgreSQL Supabase (rhr-mbatto-db) pour synchroniser
+// en temps réel les commandes QR passées depuis le smartphone d'un client vers la Caisse (/pos)
 interface ServerQrSyncState {
   qrOrders: PosOrder[];
   catalogSnapshot: InventoryItem[];
@@ -30,7 +31,6 @@ function getLocalLanIp(): string | null {
       const ifaceList = nets[name];
       if (!ifaceList) continue;
       const lower = name.toLowerCase();
-      // Ignorer les cartes virtuelles (WSL, Hyper-V, VirtualBox, Docker)
       if (
         lower.includes("vethernet") ||
         lower.includes("wsl") ||
@@ -65,6 +65,44 @@ function getLocalLanIp(): string | null {
 export async function GET() {
   const state = globalForQrSync.rhrQrSyncState!;
   const lanIp = getLocalLanIp();
+
+  // Synchroniser depuis la base PostgreSQL Supabase (rhr-mbatto-db) pour Vercel Serverless
+  try {
+    const pool = getDbPool();
+    const dbRes = await pool.query(
+      `SELECT id, order_number, source, table_or_room_label, waitress_id, waitress_name, items, total_amount, payment_mode, status, created_by, created_at
+       FROM public.pos_orders
+       WHERE status = 'NOUVELLE_QR'
+       ORDER BY created_at DESC
+       LIMIT 30`
+    );
+    const dbOrders: PosOrder[] = dbRes.rows.map((r) => ({
+      id: r.id,
+      orderNumber: r.order_number,
+      source: r.source,
+      tableOrRoomLabel: r.table_or_room_label,
+      waitressId: r.waitress_id || "wait-awa",
+      waitressName: r.waitress_name || "À attribuer (QR)",
+      items: Array.isArray(r.items) ? r.items : [],
+      totalAmount: Number(r.total_amount || 0),
+      paymentMode: r.payment_mode || "EN_ATTENTE_QR",
+      status: r.status || "NOUVELLE_QR",
+      createdBy: r.created_by || "usr-client-05",
+      createdAt:
+        r.created_at instanceof Date
+          ? r.created_at.toISOString()
+          : String(r.created_at || new Date().toISOString()),
+    }));
+
+    for (const dbo of dbOrders) {
+      if (!state.qrOrders.some((o) => o.id === dbo.id)) {
+        state.qrOrders.unshift(dbo);
+      }
+    }
+  } catch {
+    // Fallback sur le cache mémoire si hors-ligne
+  }
+
   return NextResponse.json({
     lanIp,
     qrOrders: state.qrOrders,
@@ -86,6 +124,29 @@ export async function POST(request: Request) {
         state.qrOrders = [incoming, ...state.qrOrders].slice(0, 50);
         state.updatedAt = new Date().toISOString();
       }
+
+      // Persister immédiatement dans PostgreSQL Supabase (rhr-mbatto-db)
+      try {
+        const pool = getDbPool();
+        await pool.query(
+          `INSERT INTO public.pos_orders (id, order_number, source, table_or_room_label, waitress_name, items, total_amount, payment_mode, status, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, 'NOUVELLE_QR', 'usr-client-05')
+           ON CONFLICT (id) DO NOTHING`,
+          [
+            incoming.id,
+            incoming.orderNumber,
+            incoming.source,
+            incoming.tableOrRoomLabel,
+            incoming.waitressName || "À attribuer (QR)",
+            JSON.stringify(incoming.items || []),
+            incoming.totalAmount,
+            incoming.paymentMode || "EN_ATTENTE_QR",
+          ]
+        );
+      } catch {
+        // Fallback mémoire si hors-ligne
+      }
+
       return NextResponse.json({
         success: true,
         order: incoming,
@@ -102,6 +163,15 @@ export async function POST(request: Request) {
         state.qrOrders = state.qrOrders.filter(
           (o) => o.id !== body.resolvedOrderId
         );
+        try {
+          const pool = getDbPool();
+          await pool.query(
+            `UPDATE public.pos_orders SET status = 'PAYEE' WHERE id = $1 AND status = 'NOUVELLE_QR'`,
+            [body.resolvedOrderId]
+          );
+        } catch {
+          // Ignorer si hors-ligne
+        }
       }
       state.updatedAt = new Date().toISOString();
       return NextResponse.json({
@@ -115,4 +185,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }
-

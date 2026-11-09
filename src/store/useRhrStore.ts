@@ -2362,7 +2362,13 @@ export const useRhrStore = create<RhrStoreState>()(
         set({ isSyncing: true });
 
         try {
-          if (isSupabaseConfigured) {
+          if (typeof window !== "undefined") {
+            await fetch("/api/db-sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ operations: pending }),
+            }).catch(() => null);
+          } else if (isSupabaseConfigured) {
             for (const op of pending) {
               if (op.action === "INSERT") {
                 await supabase.from(op.table).insert(op.payload);
@@ -2378,9 +2384,6 @@ export const useRhrStore = create<RhrStoreState>()(
                   .eq("id", op.payload.id);
               }
             }
-          } else {
-            // Simulation de synchronisation latence réseau 450ms en mode Hybride
-            await new Promise((r) => setTimeout(r, 450));
           }
 
           const count = pending.length;
