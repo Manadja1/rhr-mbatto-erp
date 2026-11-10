@@ -75,7 +75,11 @@ export function DailyReportingSheet({
     recordGeneralDailyOperation,
     updateDailyCashSheetMeta,
     deleteHotelTransaction,
+    clearDailyReportRowForDate,
   } = useRhrStore();
+
+  // Suppression réservée exclusivement à l'Administrateur (PROPRIETAIRE)
+  const isAdmin = currentUser?.role === "PROPRIETAIRE";
 
   // Si scope === "HOTEL_ONLY" ou rôle Gérant Hôtel : masquer toutes les opérations du Bar / Restaurant
   const isHotelOnly =
@@ -85,8 +89,8 @@ export function DailyReportingSheet({
     () =>
       isHotelOnly
         ? REPORT_ROWS_CONFIG.filter(
-            (r) => r.key !== "BAR" && r.key !== "RESTAURATION"
-          )
+          (r) => r.key !== "BAR" && r.key !== "RESTAURATION"
+        )
         : REPORT_ROWS_CONFIG,
     [isHotelOnly]
   );
@@ -125,12 +129,12 @@ export function DailyReportingSheet({
     () =>
       isHotelOnly
         ? transactions.filter(
-            (t) =>
-              t.pole !== "BAR_RESTO" &&
-              t.pole !== "MARCHE_CUISINE" &&
-              t.dailyReportRow !== "BAR" &&
-              t.dailyReportRow !== "RESTAURATION"
-          )
+          (t) =>
+            t.pole !== "BAR_RESTO" &&
+            t.pole !== "MARCHE_CUISINE" &&
+            t.dailyReportRow !== "BAR" &&
+            t.dailyReportRow !== "RESTAURATION"
+        )
         : transactions,
     [transactions, isHotelOnly]
   );
@@ -182,10 +186,10 @@ export function DailyReportingSheet({
       isHotelOnly
         ? []
         : posOrders.filter(
-            (o) =>
-              o.createdAt.slice(0, 10) === selectedDate &&
-              (o.status === "PAYEE" || o.status === "TRANSFEREE_CHAMBRE")
-          ),
+          (o) =>
+            o.createdAt.slice(0, 10) === selectedDate &&
+            (o.status === "PAYEE" || o.status === "TRANSFEREE_CHAMBRE")
+        ),
     [posOrders, selectedDate, isHotelOnly]
   );
 
@@ -737,6 +741,67 @@ export function DailyReportingSheet({
                 </button>
               </div>
             </form>
+
+            {/* Liste détaillée des saisies du jour avec suppression réservée uniquement à l'Administrateur */}
+            {isAdmin && dayTransactions.length > 0 && (
+              <div className="pt-3 border-t border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold uppercase text-rhr-burgundy">
+                    Correction / Suppression des saisies du{" "}
+                    {formatDateFr(selectedDate)} (Réservé Administrateur)
+                  </span>
+                  <span className="text-[11px] text-gray-500">
+                    {dayTransactions.length} opération(s) sur cette date
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {dayTransactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between gap-2 rounded-xl bg-white border border-gray-200 px-3 py-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <span
+                          className={cn(
+                            "inline-block rounded px-1.5 py-0.5 text-[10px] font-black uppercase mr-1.5",
+                            tx.type === "ENCAISSEMENT"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-red-100 text-red-800"
+                          )}
+                        >
+                          {tx.type === "ENCAISSEMENT" ? "Recette" : "Dépense"}
+                        </span>
+                        <strong className="text-rhr-dark truncate">
+                          {tx.description}
+                        </strong>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono font-black text-rhr-dark">
+                          {formatCFA(tx.amount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteHotelTransaction(tx.id);
+                            setFeedbackBanner(
+                              `Opération supprimée par l'Administrateur (${formatCFA(
+                                tx.amount
+                              )}).`
+                            );
+                            setTimeout(() => setFeedbackBanner(null), 4000);
+                          }}
+                          title="Supprimer cette saisie (Administrateur uniquement)"
+                          className="inline-flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 text-[11px] font-extrabold text-red-700 transition"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Supprimer</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -842,20 +907,46 @@ export function DailyReportingSheet({
                         : ""}
                     </td>
                     <td className="border border-gray-800 py-1.5 px-3">
-                      <input
-                        type="text"
-                        value={row.observation}
-                        onChange={(e) =>
-                          updateDailyCashSheetMeta({
-                            dateIso: selectedDate,
-                            rowObservations: {
-                              [row.key]: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="—"
-                        className="w-full bg-transparent text-xs text-gray-800 focus:outline-none focus:bg-amber-50 px-1 py-0.5 rounded"
-                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <input
+                          type="text"
+                          value={row.observation}
+                          onChange={(e) =>
+                            updateDailyCashSheetMeta({
+                              dateIso: selectedDate,
+                              rowObservations: {
+                                [row.key]: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="—"
+                          className="w-full bg-transparent text-xs text-gray-800 focus:outline-none focus:bg-amber-50 px-1 py-0.5 rounded"
+                        />
+                        {isAdmin &&
+                          (row.grossAmount > 0 ||
+                            row.netAmount > 0 ||
+                            Boolean(row.observation)) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearDailyReportRowForDate(
+                                  selectedDate,
+                                  row.key
+                                );
+                                setFeedbackBanner(
+                                  `Ligne "${row.label}" du ${formatDateFr(
+                                    selectedDate
+                                  )} réinitialisée par l'Administrateur.`
+                                );
+                                setTimeout(() => setFeedbackBanner(null), 4000);
+                              }}
+                              title="Supprimer / Réinitialiser cette ligne (Administrateur uniquement)"
+                              className="shrink-0 rounded-md p-1 text-red-600 hover:bg-red-50 transition print:hidden"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -912,14 +1003,16 @@ export function DailyReportingSheet({
                     <td className="border border-gray-800 py-2 px-3 font-semibold text-gray-900">
                       <div className="flex items-center justify-between gap-2">
                         <span>{exp.description}</span>
-                        <button
-                          type="button"
-                          onClick={() => deleteHotelTransaction(exp.id)}
-                          title="Supprimer cette ligne"
-                          className="text-gray-400 hover:text-red-600 print:hidden"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => deleteHotelTransaction(exp.id)}
+                            title="Supprimer cette dépense (Administrateur uniquement)"
+                            className="text-red-600 hover:bg-red-50 p-1 rounded-md print:hidden"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                     <td className="border border-gray-800 py-2 px-3 text-right font-mono font-bold text-rhr-burgundy">

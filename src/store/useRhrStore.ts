@@ -1850,6 +1850,11 @@ interface RhrStoreState {
     rowObservations?: Partial<Record<DailyReportRowKey, string>>;
   }) => DailyCashSheetMeta;
 
+  clearDailyReportRowForDate: (
+    dateIso: string,
+    rowKey: DailyReportRowKey
+  ) => void;
+
   submitCashClosure: (input: {
     pole: "HOTEL" | "BAR_RESTO" | "GLOBAL";
     totalCashIn: number;
@@ -3477,30 +3482,44 @@ export const useRhrStore = create<RhrStoreState>()(
 
       deleteHotelTransaction: (transactionId) => {
         const state = get();
+        // Fonctionnalité de suppression réservée exclusivement à l'Administrateur (PROPRIETAIRE)
+        if (state.currentUser?.role !== "PROPRIETAIRE") return;
+
         const targetTx = state.transactions.find((t) => t.id === transactionId);
         if (!targetTx) return;
 
-        const relatedStayId = targetTx.relatedEntityId;
+        const relatedId = targetTx.relatedEntityId;
         set((prev) => ({
           transactions: prev.transactions.filter((t) => t.id !== transactionId),
-          stays: relatedStayId
+          stays: relatedId
             ? prev.stays.filter(
-              (s) => !(s.id === relatedStayId && s.id.startsWith("stay-hist-"))
-            )
+                (s) => !(s.id === relatedId && s.id.startsWith("stay-hist-"))
+              )
             : prev.stays,
-          folioItems: relatedStayId
+          folioItems: relatedId
             ? prev.folioItems.filter(
-              (f) => !(f.stayId === relatedStayId && f.id.startsWith("fol-hist-"))
-            )
+                (f) =>
+                  !(f.stayId === relatedId && f.id.startsWith("fol-hist-"))
+              )
             : prev.folioItems,
+          ceremonies: relatedId
+            ? prev.ceremonies.filter(
+                (c) => !(c.id === relatedId && c.id.startsWith("cer-hist-"))
+              )
+            : prev.ceremonies,
         }));
 
         get().enqueueSyncOperation("transactions", "DELETE", {
           id: transactionId,
         });
-        if (relatedStayId && relatedStayId.startsWith("stay-hist-")) {
+        if (relatedId && relatedId.startsWith("stay-hist-")) {
           get().enqueueSyncOperation("stays", "DELETE", {
-            id: relatedStayId,
+            id: relatedId,
+          });
+        }
+        if (relatedId && relatedId.startsWith("cer-hist-")) {
+          get().enqueueSyncOperation("ceremony_bookings", "DELETE", {
+            id: relatedId,
           });
         }
       },
@@ -4588,6 +4607,99 @@ export const useRhrStore = create<RhrStoreState>()(
         }));
 
         return updated;
+      },
+
+      clearDailyReportRowForDate: (dateIso, rowKey) => {
+        const state = get();
+        // Réservé exclusivement à l'Administrateur (PROPRIETAIRE)
+        if (state.currentUser?.role !== "PROPRIETAIRE") return;
+
+        const cleanDate = dateIso.slice(0, 10);
+        const txsToDelete = state.transactions.filter((t) => {
+          if (t.createdAt.slice(0, 10) !== cleanDate || t.type !== "ENCAISSEMENT") {
+            return false;
+          }
+          if (t.dailyReportRow === rowKey) return true;
+          if (!t.dailyReportRow) {
+            if (rowKey.startsWith("CHAMBRE_")) {
+              const roomNum = Number(rowKey.replace("CHAMBRE_", ""));
+              return (
+                t.pole === "HOTEL" &&
+                (t.description.includes(`Chambre ${roomNum}`) ||
+                  t.description.includes(`Ch.${roomNum}`))
+              );
+            }
+            if (rowKey === "LOCATION_SALLE") {
+              return t.pole === "CEREMONIE";
+            }
+          }
+          return false;
+        });
+
+        const txIdsToRemove = new Set(txsToDelete.map((t) => t.id));
+        const relatedIds = new Set(
+          txsToDelete.map((t) => t.relatedEntityId).filter(Boolean) as string[]
+        );
+
+        set((prev) => {
+          const existingMeta = prev.dailyCashMetas[cleanDate];
+          const updatedMeta = existingMeta
+            ? {
+                ...existingMeta,
+                rowObservations: {
+                  ...(existingMeta.rowObservations || {}),
+                  [rowKey]: "",
+                },
+              }
+            : undefined;
+
+          return {
+            transactions: prev.transactions.filter(
+              (t) => !txIdsToRemove.has(t.id)
+            ),
+            stays: prev.stays.filter(
+              (s) => !(relatedIds.has(s.id) && s.id.startsWith("stay-hist-"))
+            ),
+            folioItems: prev.folioItems.filter(
+              (f) =>
+                !(relatedIds.has(f.stayId) && f.id.startsWith("fol-hist-"))
+            ),
+            ceremonies: prev.ceremonies.filter(
+              (c) => !(relatedIds.has(c.id) && c.id.startsWith("cer-hist-"))
+            ),
+            posOrders:
+              rowKey === "RESTAURATION" || rowKey === "BAR"
+                ? prev.posOrders
+                    .map((ord) => {
+                      if (ord.createdAt.slice(0, 10) !== cleanDate) return ord;
+                      const targetPole =
+                        rowKey === "RESTAURATION" ? "PLAT_MENU" : "BAR_BOISSON";
+                      const remainingItems = ord.items.filter(
+                        (i) => i.pole !== targetPole
+                      );
+                      if (remainingItems.length === ord.items.length) return ord;
+                      return {
+                        ...ord,
+                        items: remainingItems,
+                        totalAmount: remainingItems.reduce(
+                          (sum, i) => sum + i.subtotal,
+                          0
+                        ),
+                      };
+                    })
+                    .filter((ord) => ord.items.length > 0)
+                : prev.posOrders,
+            dailyCashMetas: updatedMeta
+              ? { ...prev.dailyCashMetas, [cleanDate]: updatedMeta }
+              : prev.dailyCashMetas,
+          };
+        });
+
+        for (const tx of txsToDelete) {
+          get().enqueueSyncOperation("transactions", "DELETE", {
+            id: tx.id,
+          });
+        }
       },
 
       submitCashClosure: (input) => {

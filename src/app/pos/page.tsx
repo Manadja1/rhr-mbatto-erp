@@ -1595,29 +1595,20 @@ export default function PosPage() {
 
               <div>
                 <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
-                  Mode de Règlement &amp; Observation
+                  Mode de Règlement
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    value={ceremonyPaymentMethod}
-                    onChange={(e) =>
-                      setCeremonyPaymentMethod(e.target.value as PaymentMethod)
-                    }
-                    className="rounded-xl border border-gray-300 px-2.5 py-2 text-xs font-bold text-rhr-dark"
-                  >
-                    <option value="ESPECES">Espèces</option>
-                    <option value="WAVE">Wave</option>
-                    <option value="ORANGE_MONEY">Orange Money</option>
-                    <option value="MTN_MOMO">MTN MoMo</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={ceremonyNotes}
-                    onChange={(e) => setCeremonyNotes(e.target.value)}
-                    placeholder="Observation..."
-                    className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
-                  />
-                </div>
+                <select
+                  value={ceremonyPaymentMethod}
+                  onChange={(e) =>
+                    setCeremonyPaymentMethod(e.target.value as PaymentMethod)
+                  }
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-rhr-dark"
+                >
+                  <option value="ESPECES">Espèces</option>
+                  <option value="WAVE">Wave</option>
+                  <option value="ORANGE_MONEY">Orange Money</option>
+                  <option value="MTN_MOMO">MTN MoMo</option>
+                </select>
               </div>
 
               <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">

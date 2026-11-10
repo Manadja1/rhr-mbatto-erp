@@ -237,9 +237,9 @@ export default function HotelPage() {
 
   const effectiveCheckInDiscount = isDiscountEligibleRoom
     ? Math.min(
-        computedCheckInGross,
-        Math.max(0, Math.round(checkInDiscountAmount || 0))
-      )
+      computedCheckInGross,
+      Math.max(0, Math.round(checkInDiscountAmount || 0))
+    )
     : 0;
 
   const computedCheckInTotal = Math.max(
@@ -326,8 +326,8 @@ export default function HotelPage() {
             stayType === "RESERVATION"
               ? "Reçu d'Acompte de Réservation Hôtel"
               : stayType === "PASSAGE_3H"
-              ? "Ticket Officiel Passage 3 Heures"
-              : "Reçu de Check-In Nuitée Hôtel",
+                ? "Ticket Officiel Passage 3 Heures"
+                : "Reçu de Check-In Nuitée Hôtel",
           stay: createdStay,
           roomName: selectedRoomForCheckIn.name,
           roomCategory: selectedRoomForCheckIn.category,
@@ -532,10 +532,9 @@ export default function HotelPage() {
     setExpAmount(2000);
     setExpPhotoPreview(undefined);
     setExpSuccessBanner(
-      `Dépense d'entretien enregistrée (${formatCFA(tx.amount)} — ${
-        tx.expenseFundSource === "CAISSE_DU_JOUR"
-          ? "Déduite de la caisse du jour"
-          : "Prise sur le fonds de caisse séparé"
+      `Dépense d'entretien enregistrée (${formatCFA(tx.amount)} — ${tx.expenseFundSource === "CAISSE_DU_JOUR"
+        ? "Déduite de la caisse du jour"
+        : "Prise sur le fonds de caisse séparé"
       })`
     );
     setTimeout(() => setExpSuccessBanner(null), 5000);
@@ -1385,25 +1384,25 @@ export default function HotelPage() {
 
                   {(room.status === "OCCUPEE_NUITEE" ||
                     room.status === "OCCUPEE_PASSAGE_3H") && (
-                    <div className="grid grid-cols-2 gap-2 w-full">
-                      <button
-                        type="button"
-                        onClick={() => setFolioRoomId(room.id)}
-                        className="h-10 rounded-xl bg-rhr-dark hover:bg-rhr-burgundy px-3 text-xs font-extrabold text-white transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
-                      >
-                        <Receipt className="h-3.5 w-3.5 text-rhr-gold shrink-0" />
-                        <span>Folio &amp; Conso</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFolioRoomId(room.id)}
-                        className="h-10 rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-3 text-xs font-extrabold text-white transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
-                      >
-                        <LogOut className="h-3.5 w-3.5 shrink-0" />
-                        <span>Solde &amp; Check-Out</span>
-                      </button>
-                    </div>
-                  )}
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        <button
+                          type="button"
+                          onClick={() => setFolioRoomId(room.id)}
+                          className="h-10 rounded-xl bg-rhr-dark hover:bg-rhr-burgundy px-3 text-xs font-extrabold text-white transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                        >
+                          <Receipt className="h-3.5 w-3.5 text-rhr-gold shrink-0" />
+                          <span>Folio &amp; Conso</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFolioRoomId(room.id)}
+                          className="h-10 rounded-xl bg-rhr-burgundy hover:bg-rhr-burgundy-light px-3 text-xs font-extrabold text-white transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                        >
+                          <LogOut className="h-3.5 w-3.5 shrink-0" />
+                          <span>Solde &amp; Check-Out</span>
+                        </button>
+                      </div>
+                    )}
 
                   {room.status === "RESERVEE" && stay && (
                     <div className="grid grid-cols-2 gap-2 w-full">
@@ -1517,8 +1516,8 @@ export default function HotelPage() {
                             st.status === "RESERVE"
                               ? "bg-purple-100 text-purple-800"
                               : st.status === "TERMINE"
-                              ? "bg-gray-200 text-gray-700"
-                              : "bg-blue-100 text-blue-800"
+                                ? "bg-gray-200 text-gray-700"
+                                : "bg-blue-100 text-blue-800"
                           )}
                         >
                           {st.stayType} • {st.status}
@@ -2446,8 +2445,8 @@ export default function HotelPage() {
                                   m.netBalance > 0
                                     ? "bg-emerald-100 text-emerald-900"
                                     : m.netBalance < 0
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-600"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-600"
                                 )}
                               >
                                 {formatCFA(m.netBalance)}
@@ -2492,7 +2491,7 @@ export default function HotelPage() {
                       {selectedMonthFilter === "ALL_2026"
                         ? "Toute l'année 2026"
                         : MONTHS_2026.find((m) => m.key === selectedMonthFilter)
-                            ?.label || selectedMonthFilter}
+                          ?.label || selectedMonthFilter}
                       )
                     </h4>
                     <p className="text-xs text-gray-500">
@@ -2564,14 +2563,16 @@ export default function HotelPage() {
                             {formatCFA(tx.amount)}
                           </span>
 
-                          <button
-                            type="button"
-                            onClick={() => deleteHotelTransaction(tx.id)}
-                            title="Supprimer cette opération si saisie par erreur"
-                            className="rounded-lg p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {currentUser?.role === "PROPRIETAIRE" && (
+                            <button
+                              type="button"
+                              onClick={() => deleteHotelTransaction(tx.id)}
+                              title="Supprimer cette opération (Administrateur uniquement)"
+                              className="rounded-lg p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2783,29 +2784,20 @@ export default function HotelPage() {
 
               <div>
                 <label className="block text-[11px] font-extrabold uppercase text-gray-600 mb-1">
-                  Mode de Règlement &amp; Observation
+                  Mode de Règlement
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    value={hallPaymentMethod}
-                    onChange={(e) =>
-                      setHallPaymentMethod(e.target.value as PaymentMethod)
-                    }
-                    className="rounded-xl border border-gray-300 px-2.5 py-2 text-xs font-bold text-rhr-dark"
-                  >
-                    <option value="ESPECES">Espèces</option>
-                    <option value="WAVE">Wave</option>
-                    <option value="ORANGE_MONEY">Orange Money</option>
-                    <option value="MTN_MOMO">MTN MoMo</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={hallNotes}
-                    onChange={(e) => setHallNotes(e.target.value)}
-                    placeholder="Observation..."
-                    className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-rhr-dark"
-                  />
-                </div>
+                <select
+                  value={hallPaymentMethod}
+                  onChange={(e) =>
+                    setHallPaymentMethod(e.target.value as PaymentMethod)
+                  }
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-rhr-dark"
+                >
+                  <option value="ESPECES">Espèces</option>
+                  <option value="WAVE">Wave</option>
+                  <option value="ORANGE_MONEY">Orange Money</option>
+                  <option value="MTN_MOMO">MTN MoMo</option>
+                </select>
               </div>
 
               <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
@@ -3060,8 +3052,8 @@ export default function HotelPage() {
                           effectiveType === "PASSAGE_3H"
                             ? nextRoom.passagePrice
                             : effectiveType === "RESERVATION"
-                            ? 5000
-                            : Math.max(
+                              ? 5000
+                              : Math.max(
                                 0,
                                 nextRoom.nightPrice * nightsCount - nextDiscount
                               )
@@ -3105,9 +3097,9 @@ export default function HotelPage() {
                           Math.max(
                             0,
                             selectedRoomForCheckIn.nightPrice * nightsCount -
-                              (selectedRoomForCheckIn.roomNumber <= 3
-                                ? checkInDiscountAmount
-                                : 0)
+                            (selectedRoomForCheckIn.roomNumber <= 3
+                              ? checkInDiscountAmount
+                              : 0)
                           )
                         );
                       }
@@ -3123,8 +3115,8 @@ export default function HotelPage() {
                     >
                       {selectedRoomForCheckIn.allowPassage3h
                         ? `Passage 3 Heures en Journée (${formatCFA(
-                            selectedRoomForCheckIn.passagePrice
-                          )})`
+                          selectedRoomForCheckIn.passagePrice
+                        )})`
                         : "Passage 3H (Uniquement sur Chambres 4 et 5)"}
                     </option>
                     <option value="RESERVATION">
@@ -3184,9 +3176,9 @@ export default function HotelPage() {
                             Math.max(
                               0,
                               selectedRoomForCheckIn.nightPrice * n -
-                                (selectedRoomForCheckIn.roomNumber <= 3
-                                  ? checkInDiscountAmount
-                                  : 0)
+                              (selectedRoomForCheckIn.roomNumber <= 3
+                                ? checkInDiscountAmount
+                                : 0)
                             )
                           );
                         }
@@ -3445,7 +3437,7 @@ export default function HotelPage() {
                         Prolonger en Nuitée (+
                         {formatCFA(
                           activeFolioRoom.nightPrice -
-                            activeFolioRoom.passagePrice
+                          activeFolioRoom.passagePrice
                         )}
                         )
                       </button>
@@ -3475,7 +3467,7 @@ export default function HotelPage() {
                           Tarif de base :{" "}
                           {formatCFA(
                             activeFolioRoom.nightPrice *
-                              Math.max(1, activeFolioStay.nightsCount)
+                            Math.max(1, activeFolioStay.nightsCount)
                           )}
                         </span>
                       </div>
