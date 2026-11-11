@@ -6,7 +6,7 @@
 // 3. Cache-First pour les images, polices, icônes et bundles statiques (économie data mobile)
 // =============================================================================
 
-const CACHE_VERSION = "rhr-mbatto-pwa-v2.8";
+const CACHE_VERSION = "rhr-mbatto-pwa-v3.0";
 const CORE_CACHE = `${CACHE_VERSION}-core`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const ASSETS_CACHE = `${CACHE_VERSION}-assets`;
@@ -119,7 +119,7 @@ self.addEventListener("fetch", (event) => {
                   .then((cache) => cache.put(request, networkResponse));
               }
             })
-            .catch(() => {});
+            .catch(() => { });
           return cachedResponse;
         }
 

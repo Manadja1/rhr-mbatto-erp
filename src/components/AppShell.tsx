@@ -104,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     updateUserAccount,
     loginWithPin,
     logout,
+    pullRemoteData,
   } = useRhrStore();
 
   const [mounted, setMounted] = useState(false);
@@ -129,7 +130,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Nettoyer les anciens caches obsolètes rhr-mbatto-erp-storage-v2.x sur les nouveaux terminaux
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem("rhr-mbatto-erp-storage-v2.7");
+        window.localStorage.removeItem("rhr-mbatto-erp-storage-v2.6");
+        window.localStorage.removeItem("rhr-mbatto-erp-storage-v2.5");
+        window.localStorage.removeItem("rhr-mbatto-erp-storage-v2");
+        window.localStorage.removeItem("rhr-mbatto-erp-storage");
+      } catch { }
+    }
+    // Récupérer les données réelles depuis le serveur/Supabase dès le montage
+    pullRemoteData();
+  }, [pullRemoteData]);
 
   // Écouteur temps réel des événements navigateur online / offline + synchronisation inter-onglets (Prix & Stocks)
   useEffect(() => {
@@ -137,7 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const handleOnline = () => setOnlineStatus(true);
     const handleOffline = () => setOnlineStatus(false);
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "rhr-mbatto-erp-storage-v2.7") {
+      if (e.key === "rhr-mbatto-erp-storage-v3.0") {
         const storeWithPersist = useRhrStore as unknown as {
           persist?: { rehydrate: () => void | Promise<void> };
         };

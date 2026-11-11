@@ -260,11 +260,11 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO public.waitresses (id, name, phone, is_active, total_sales_amount, orders_count, created_by)
 VALUES
-  ('wait-awa', 'Awa', '+225 07 11 22 33 01', TRUE, 42500, 6, 'usr-admin-01'),
-  ('wait-chantal', 'Chantal', '+225 07 11 22 33 02', TRUE, 31000, 4, 'usr-admin-01'),
-  ('wait-clarisse', 'Clarisse', '+225 05 11 22 33 03', TRUE, 24000, 3, 'usr-admin-01'),
-  ('wait-marie', 'Marie', '+225 01 11 22 33 04', TRUE, 19500, 3, 'usr-admin-01'),
-  ('wait-comptoir', 'Direct Comptoir', '+225 07 00 00 00 99', TRUE, 14000, 2, 'usr-admin-01')
+  ('wait-awa', 'Awa', '+225 07 11 22 33 01', TRUE, 0, 0, 'usr-admin-01'),
+  ('wait-chantal', 'Chantal', '+225 07 11 22 33 02', TRUE, 0, 0, 'usr-admin-01'),
+  ('wait-clarisse', 'Clarisse', '+225 05 11 22 33 03', TRUE, 0, 0, 'usr-admin-01'),
+  ('wait-marie', 'Marie', '+225 01 11 22 33 04', TRUE, 0, 0, 'usr-admin-01'),
+  ('wait-comptoir', 'Direct Comptoir', '+225 07 00 00 00 99', TRUE, 0, 0, 'usr-admin-01')
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   phone = EXCLUDED.phone;

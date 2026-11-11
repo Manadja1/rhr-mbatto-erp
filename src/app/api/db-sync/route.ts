@@ -62,6 +62,55 @@ export async function GET(request: Request) {
 
   try {
     const pool = getDbPool();
+    const url = new URL(request.url);
+    const full = url.searchParams.get("full") === "true";
+
+    if (full) {
+      const [
+        usersRes,
+        waitressesRes,
+        roomsRes,
+        inventoryRes,
+        posOrdersRes,
+        staysRes,
+        foliosRes,
+        ceremoniesRes,
+        transactionsRes,
+        closuresRes,
+        fixedCostsRes,
+      ] = await Promise.all([
+        pool.query("SELECT * FROM public.users WHERE is_active = TRUE;"),
+        pool.query("SELECT * FROM public.waitresses WHERE is_active = TRUE;"),
+        pool.query("SELECT * FROM public.rooms ORDER BY room_number ASC;"),
+        pool.query("SELECT * FROM public.inventory_items ORDER BY name ASC;"),
+        pool.query("SELECT * FROM public.pos_orders ORDER BY created_at DESC LIMIT 100;"),
+        pool.query("SELECT * FROM public.stays ORDER BY check_in DESC LIMIT 100;"),
+        pool.query("SELECT * FROM public.room_folio_items ORDER BY created_at DESC LIMIT 200;"),
+        pool.query("SELECT * FROM public.ceremony_bookings ORDER BY event_date DESC LIMIT 100;"),
+        pool.query("SELECT * FROM public.transactions ORDER BY created_at DESC LIMIT 500;"),
+        pool.query("SELECT * FROM public.cash_closures ORDER BY created_at DESC LIMIT 50;"),
+        pool.query("SELECT * FROM public.fixed_costs ORDER BY created_at DESC LIMIT 50;"),
+      ]);
+
+      return NextResponse.json({
+        connected: true,
+        data: {
+          users: usersRes.rows,
+          waitresses: waitressesRes.rows,
+          rooms: roomsRes.rows,
+          inventory: inventoryRes.rows,
+          posOrders: posOrdersRes.rows,
+          stays: staysRes.rows,
+          folioItems: foliosRes.rows,
+          ceremonies: ceremoniesRes.rows,
+          transactions: transactionsRes.rows,
+          cashClosures: closuresRes.rows,
+          fixedCosts: fixedCostsRes.rows,
+        },
+        checkedAt: new Date().toISOString(),
+      });
+    }
+
     const res = await pool.query(`
       SELECT
         (SELECT count(*)::int FROM public.users) AS users,

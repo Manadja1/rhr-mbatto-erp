@@ -549,40 +549,40 @@ export const INITIAL_WAITRESSES: Waitress[] = [
     name: "Awa",
     phone: "+225 07 11 22 33 01",
     isActive: true,
-    totalSalesAmount: 42500,
-    ordersCount: 6,
+    totalSalesAmount: 0,
+    ordersCount: 0,
   },
   {
     id: "wait-chantal",
     name: "Chantal",
     phone: "+225 07 11 22 33 02",
     isActive: true,
-    totalSalesAmount: 31000,
-    ordersCount: 4,
+    totalSalesAmount: 0,
+    ordersCount: 0,
   },
   {
     id: "wait-clarisse",
     name: "Clarisse",
     phone: "+225 05 11 22 33 03",
     isActive: true,
-    totalSalesAmount: 24000,
-    ordersCount: 3,
+    totalSalesAmount: 0,
+    ordersCount: 0,
   },
   {
     id: "wait-marie",
     name: "Marie",
     phone: "+225 01 11 22 33 04",
     isActive: true,
-    totalSalesAmount: 19500,
-    ordersCount: 3,
+    totalSalesAmount: 0,
+    ordersCount: 0,
   },
   {
     id: "wait-comptoir",
     name: "Direct Comptoir",
     phone: "+225 07 00 00 00 99",
     isActive: true,
-    totalSalesAmount: 14000,
-    ordersCount: 2,
+    totalSalesAmount: 0,
+    ordersCount: 0,
   },
 ];
 
@@ -595,9 +595,8 @@ export const INITIAL_ROOMS: Room[] = [
     nightPrice: 15000,
     passagePrice: 0,
     allowPassage3h: false,
-    status: "OCCUPEE_NUITEE",
+    status: "LIBRE",
     amenities: ["Climatisation Split", "TV Canal+", "Eau Chaude", "Lit King Size"],
-    currentStayId: "stay-room1-nuitee",
     updatedBy: "usr-hotel-03",
     updatedAt: yesterday,
   },
@@ -635,9 +634,8 @@ export const INITIAL_ROOMS: Room[] = [
     nightPrice: 10000,
     passagePrice: 5000,
     allowPassage3h: true,
-    status: "OCCUPEE_PASSAGE_3H",
+    status: "LIBRE",
     amenities: ["Climatisation", "TV", "Eau Chaude"],
-    currentStayId: "stay-room4-passage",
     updatedBy: "usr-hotel-03",
     updatedAt: twoHoursAgo,
   },
@@ -649,156 +647,16 @@ export const INITIAL_ROOMS: Room[] = [
     nightPrice: 10000,
     passagePrice: 5000,
     allowPassage3h: true,
-    status: "RESERVEE",
+    status: "LIBRE",
     amenities: ["Climatisation", "TV", "Eau Chaude"],
-    currentStayId: "stay-room5-resa",
     updatedBy: "usr-hotel-03",
     updatedAt: twoHoursAgo,
   },
 ];
 
-export const INITIAL_STAYS: Stay[] = [
-  {
-    id: "stay-room1-nuitee",
-    roomId: "room-1",
-    roomNumber: 1,
-    guestName: "M. Kouassi Jean-Marc",
-    guestPhone: "+225 07 08 45 12 90",
-    guestIdNumber: "CI-009481723",
-    stayType: "NUITEE",
-    status: "EN_COURS",
-    checkIn: yesterday,
-    expectedCheckOut: tomorrowNoon,
-    nightsCount: 1,
-    baseRate: 15000,
-    depositAmount: 5000,
-    depositMethod: "ESPECES",
-    notes: "Client régulier d'Abidjan. A demandé le transfert de son dîner sur la note de la Chambre 1.",
-    createdBy: "usr-hotel-03",
-    createdAt: yesterday,
-  },
-  {
-    id: "stay-room4-passage",
-    roomId: "room-4",
-    roomNumber: 4,
-    guestName: "M. Konan Yao",
-    guestPhone: "+225 05 44 88 21 10",
-    guestIdNumber: "CI-004519820",
-    stayType: "PASSAGE_3H",
-    status: "EN_COURS",
-    checkIn: twoHoursAgo,
-    expectedCheckOut: oneHourRemaining,
-    nightsCount: 1,
-    baseRate: 5000,
-    depositAmount: 5000,
-    depositMethod: "ESPECES",
-    notes: "Passage 3H réglé d'avance en espèces (Chambre 4).",
-    createdBy: "usr-hotel-03",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "stay-room5-resa",
-    roomId: "room-5",
-    roomNumber: 5,
-    guestName: "Mme Brou Aïcha",
-    guestPhone: "+225 07 59 10 20 30",
-    stayType: "RESERVATION",
-    status: "RESERVE",
-    checkIn: tomorrowNoon,
-    expectedCheckOut: dayAfterTomorrow,
-    nightsCount: 1,
-    baseRate: 10000,
-    depositAmount: 5000,
-    depositMethod: "WAVE",
-    notes: "Arrivée prévue demain à 14h00. Acompte 5 000 F reçu par Wave.",
-    createdBy: "usr-hotel-03",
-    createdAt: twoHoursAgo,
-  },
-];
+export const INITIAL_STAYS: Stay[] = [];
 
-export const INITIAL_FOLIO_ITEMS: RoomFolioItem[] = [
-  // Chambre 1 : Nuitée 15 000 F - Acompte 5 000 F + Conso Bar/Resto transférée 8 000 F = Solde 18 000 F
-  {
-    id: "folio-1",
-    stayId: "stay-room1-nuitee",
-    roomNumber: 1,
-    description: "Forfait 1 Nuitée — Chambre 1 (Catégorie Confort)",
-    category: "HEBERGEMENT",
-    amount: 15000,
-    isPaid: false,
-    createdBy: "usr-hotel-03",
-    createdAt: yesterday,
-  },
-  {
-    id: "folio-2",
-    stayId: "stay-room1-nuitee",
-    roomNumber: 1,
-    description: "Acompte Check-in réglé en Espèces",
-    category: "ACOMPTE",
-    amount: -5000,
-    isPaid: true,
-    createdBy: "usr-hotel-03",
-    createdAt: yesterday,
-  },
-  {
-    id: "folio-3",
-    stayId: "stay-room1-nuitee",
-    roomNumber: 1,
-    description: "Transfert Bar/Resto #CMD-101 (1x Poulet Braisé Entier + 2x Beaufort) — Serveuse Awa",
-    category: "BAR_RESTO",
-    amount: 8000,
-    isPaid: false,
-    posOrderId: "ord-101",
-    createdBy: "usr-caisse-04",
-    createdAt: twoHoursAgo,
-  },
-  // Chambre 4 : Passage 3H (5 000 F réglé)
-  {
-    id: "folio-4",
-    stayId: "stay-room4-passage",
-    roomNumber: 4,
-    description: "Forfait Passage 3 Heures — Chambre 4",
-    category: "HEBERGEMENT",
-    amount: 5000,
-    isPaid: true,
-    createdBy: "usr-hotel-03",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "folio-5",
-    stayId: "stay-room4-passage",
-    roomNumber: 4,
-    description: "Règlement Passage 3H (Espèces)",
-    category: "ACOMPTE",
-    amount: -5000,
-    isPaid: true,
-    createdBy: "usr-hotel-03",
-    createdAt: twoHoursAgo,
-  },
-  // Chambre 5 : Réservation 10 000 F avec acompte Wave 5 000 F
-  {
-    id: "folio-6",
-    stayId: "stay-room5-resa",
-    roomNumber: 5,
-    description: "Réservation 1 Nuitée — Chambre 5 (Catégorie Standard)",
-    category: "HEBERGEMENT",
-    amount: 10000,
-    isPaid: false,
-    createdBy: "usr-hotel-03",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "folio-7",
-    stayId: "stay-room5-resa",
-    roomNumber: 5,
-    description: "Acompte de Réservation (Wave Mobile Money)",
-    category: "ACOMPTE",
-    amount: -5000,
-    isPaid: true,
-    createdBy: "usr-hotel-03",
-    createdAt: twoHoursAgo,
-  },
-];
+export const INITIAL_FOLIO_ITEMS: RoomFolioItem[] = [];
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
   // =========================================================================
@@ -1126,331 +984,17 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
   },
 ];
 
-export const INITIAL_POS_ORDERS: PosOrder[] = [
-  {
-    id: "ord-101",
-    orderNumber: "CMD-101",
-    source: "COMPTOIR_POS",
-    tableOrRoomLabel: "Chambre 1 (M. Kouassi)",
-    waitressId: "wait-awa",
-    waitressName: "Awa",
-    items: [
-      {
-        itemId: "menu-poulet-braise",
-        name: "Poulet Braisé Entier + Attiéké / Alloco",
-        quantity: 1,
-        unitPrice: 6000,
-        subtotal: 6000,
-        pole: "PLAT_MENU",
-      },
-      {
-        itemId: "bar-beaufort-50",
-        name: "Bière Beaufort Lager 50cl",
-        quantity: 2,
-        unitPrice: 1000,
-        subtotal: 2000,
-        pole: "BAR_BOISSON",
-      },
-    ],
-    totalAmount: 8000,
-    paymentMode: "TRANSFERT_CHAMBRE",
-    transferredToRoomNumber: 1,
-    transferredToStayId: "stay-room1-nuitee",
-    status: "TRANSFEREE_CHAMBRE",
-    createdBy: "usr-caisse-04",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "ord-102",
-    orderNumber: "CMD-102",
-    source: "COMPTOIR_POS",
-    tableOrRoomLabel: "Terrasse Table 3",
-    waitressId: "wait-chantal",
-    waitressName: "Chantal",
-    items: [
-      {
-        itemId: "menu-carpe-braisee",
-        name: "Carpe Braisée Géante + Attiéké & Alloco",
-        quantity: 2,
-        unitPrice: 7000,
-        subtotal: 14000,
-        pole: "PLAT_MENU",
-      },
-      {
-        itemId: "bar-bock-66",
-        name: "Bière Bock Solibra 66cl",
-        quantity: 4,
-        unitPrice: 1000,
-        subtotal: 4000,
-        pole: "BAR_BOISSON",
-      },
-    ],
-    totalAmount: 18000,
-    paymentMode: "ESPECES",
-    status: "PAYEE",
-    createdBy: "usr-caisse-04",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "ord-qr-103",
-    orderNumber: "CMD-QR-103",
-    source: "QR_TABLE",
-    tableOrRoomLabel: "Table 4 — Client Didier",
-    waitressId: "wait-awa",
-    waitressName: "À attribuer (QR)",
-    items: [
-      {
-        itemId: "menu-machoiron-braise",
-        name: "Machoiron Braisé de M'Batto + Attiéké",
-        quantity: 1,
-        unitPrice: 8500,
-        subtotal: 8500,
-        pole: "PLAT_MENU",
-      },
-      {
-        itemId: "bar-chill-50",
-        name: "Chill Citron Solibra 50cl",
-        quantity: 2,
-        unitPrice: 1000,
-        subtotal: 2000,
-        pole: "BAR_BOISSON",
-      },
-    ],
-    totalAmount: 10500,
-    paymentMode: "EN_ATTENTE_QR",
-    status: "NOUVELLE_QR",
-    createdBy: "usr-client-05",
-    createdAt: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-  },
-];
+export const INITIAL_POS_ORDERS: PosOrder[] = [];
 
-export const INITIAL_CEREMONIES: CeremonyBooking[] = [
-  {
-    id: "cer-01",
-    reference: "DEV-RHR-2026-01",
-    clientName: "Famille N'Guessan & Koné",
-    clientPhone: "+225 07 09 88 77 66",
-    eventType: "MARIAGE",
-    eventDate: "2026-11-21",
-    guestsCount: 120,
-    baseRentalFee: 50000, // Inclut 50 couverts
-    extraOrdinaryCovers: 50, // 50 x 1 000 F = 50 000 F
-    extraVipCovers: 20, // 20 x 1 500 F = 30 000 F
-    customCateringLines: [
-      {
-        id: "cat-1",
-        label: "Buffet Royal M'Batto (Poulets braisés, Carpes, Kedjenou, Attiéké, Riz)",
-        quantity: 1,
-        unitPrice: 180000,
-        subtotal: 180000,
-      },
-    ],
-    customBeverageLines: [
-      {
-        id: "bev-1",
-        label: "Forfait Casiers Bières Solibra & Sucreries glacées",
-        quantity: 10,
-        unitPrice: 12000,
-        subtotal: 120000,
-      },
-    ],
-    totalAmount: 430000,
-    deposits: [
-      {
-        id: "dep-cer-1",
-        amount: 150000,
-        method: "WAVE",
-        paidAt: yesterday,
-        receivedBy: "M. Koffi — Administrateur RHR",
-        note: "1er acompte de réservation salle & traiteur",
-      },
-    ],
-    totalPaid: 150000,
-    status: "CONFIRME_ACOMPTE",
-    notes: "Décoration Or & Rouge Bordeaux souhaitée par les mariés.",
-    createdBy: "usr-admin-01",
-    createdAt: yesterday,
-  },
-];
+export const INITIAL_CEREMONIES: CeremonyBooking[] = [];
 
-export const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: "tx-01",
-    reference: "ENC-HOT-001",
-    type: "ENCAISSEMENT",
-    pole: "HOTEL",
-    vault: "CAISSE_ESPECES",
-    paymentMethod: "ESPECES",
-    amount: 5000,
-    description: "Acompte Nuitée Chambre 1 — M. Kouassi Jean-Marc",
-    relatedEntityId: "stay-room1-nuitee",
-    createdBy: "usr-hotel-03",
-    createdByName: "Yao Serge — Gérant Hôtel",
-    createdAt: yesterday,
-  },
-  {
-    id: "tx-02",
-    reference: "ENC-HOT-002",
-    type: "ENCAISSEMENT",
-    pole: "HOTEL",
-    vault: "CAISSE_ESPECES",
-    paymentMethod: "ESPECES",
-    amount: 5000,
-    description: "Passage 3H Chambre 4 — M. Konan Yao",
-    relatedEntityId: "stay-room4-passage",
-    createdBy: "usr-hotel-03",
-    createdByName: "Yao Serge — Gérant Hôtel",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "tx-03",
-    reference: "ENC-HOT-003",
-    type: "ENCAISSEMENT",
-    pole: "HOTEL",
-    vault: "CAISSE_MOBILE_MONEY",
-    paymentMethod: "WAVE",
-    amount: 5000,
-    description: "Acompte Réservation Chambre 5 (Wave) — Mme Brou Aïcha",
-    relatedEntityId: "stay-room5-resa",
-    createdBy: "usr-hotel-03",
-    createdByName: "Yao Serge — Gérant Hôtel",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "tx-04",
-    reference: "ENC-POS-102",
-    type: "ENCAISSEMENT",
-    pole: "BAR_RESTO",
-    vault: "CAISSE_ESPECES",
-    paymentMethod: "ESPECES",
-    amount: 18000,
-    description: "Commande #CMD-102 (Terrasse Table 3 — Serveuse Chantal)",
-    relatedEntityId: "ord-102",
-    createdBy: "usr-caisse-04",
-    createdByName: "Adjoua Félicité — Caissière Bar/Resto",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "tx-05",
-    reference: "DEP-MAR-001",
-    type: "DEPENSE",
-    pole: "MARCHE_CUISINE",
-    vault: "CAISSE_ESPECES",
-    paymentMethod: "ESPECES",
-    expenseFundSource: "CAISSE_DU_JOUR",
-    amount: 6500,
-    description: "Achats Marché M'Batto : Attiéké frais, Bananes Alloco, Piment, Tomates & Oignons",
-    createdBy: "usr-caisse-04",
-    createdByName: "Adjoua Félicité — Caissière Bar/Resto",
-    createdAt: twoHoursAgo,
-  },
-  {
-    id: "tx-06",
-    reference: "ENC-CER-001",
-    type: "ENCAISSEMENT",
-    pole: "CEREMONIE",
-    vault: "CAISSE_MOBILE_MONEY",
-    paymentMethod: "WAVE",
-    amount: 150000,
-    grossAmount: 150000,
-    discountAmount: 0,
-    dailyReportRow: "LOCATION_SALLE",
-    observation: "1er Acompte Mariage Famille N'Guessan & Koné",
-    description: "1er Acompte Mariage Famille N'Guessan & Koné",
-    relatedEntityId: "cer-01",
-    createdBy: "usr-admin-01",
-    createdByName: "M. Koffi — Administrateur RHR",
-    createdAt: yesterday,
-  },
-  {
-    id: "tx-doc-20260417-ch4",
-    reference: "HTL-20260417-01",
-    type: "ENCAISSEMENT",
-    pole: "HOTEL",
-    vault: "CAISSE_ESPECES",
-    paymentMethod: "ESPECES",
-    amount: 10000,
-    grossAmount: 10000,
-    discountAmount: 0,
-    dailyReportRow: "CHAMBRE_4",
-    observation: "Nuitée Chambre 4 (10 000 F)",
-    description: "1 Nuitée — Chambre 4 (Standard) — Reporting du 17/04/2026",
-    createdBy: "usr-hotel-03",
-    createdByName: "Yao Serge — Gérant Hôtel",
-    createdAt: "2026-04-17T12:00:00.000Z",
-  },
-];
+export const INITIAL_TRANSACTIONS: Transaction[] = [];
 
-export const INITIAL_DAILY_CASH_METAS: Record<string, DailyCashSheetMeta> = {
-  "2026-04-17": {
-    dateIso: "2026-04-17",
-    openingBalanceOverride: 91000,
-    cashDepositAmount: 0,
-    bankDepositAmount: 0,
-    managerSignatureName: "La Gérante RHR M'Batto",
-    updatedAt: "2026-04-17T20:00:00.000Z",
-  },
-};
+export const INITIAL_DAILY_CASH_METAS: Record<string, DailyCashSheetMeta> = {};
 
-export const INITIAL_FIXED_COSTS: FixedCost[] = [
-  {
-    id: "fc-01",
-    category: "CIE_ELECTRICITE",
-    label: "Facture CIE Électricité Bimestrielle — RHR M'Batto",
-    beneficiary: "CIE Côte d'Ivoire",
-    periodMonth: "2026-11",
-    amount: 65000,
-    paymentMethod: "ORANGE_MONEY",
-    isPaid: true,
-    createdBy: "usr-admin-01",
-    createdAt: yesterday,
-  },
-  {
-    id: "fc-02",
-    category: "SODECI_EAU",
-    label: "Facture SODECI Eau Courante",
-    beneficiary: "SODECI",
-    periodMonth: "2026-11",
-    amount: 18500,
-    paymentMethod: "WAVE",
-    isPaid: true,
-    createdBy: "usr-admin-01",
-    createdAt: yesterday,
-  },
-  {
-    id: "fc-03",
-    category: "SALAIRE",
-    label: "Salaires Personnel Hôtel & Serveuses Bar/Resto",
-    beneficiary: "Équipe RHR M'Batto",
-    periodMonth: "2026-11",
-    amount: 45000,
-    paymentMethod: "ESPECES",
-    isPaid: true,
-    createdBy: "usr-admin-01",
-    createdAt: yesterday,
-  },
-];
+export const INITIAL_FIXED_COSTS: FixedCost[] = [];
 
-export const INITIAL_CLOSURES: CashClosure[] = [
-  {
-    id: "clos-01",
-    pole: "BAR_RESTO",
-    closedBy: "usr-caisse-04",
-    closedByName: "Adjoua Félicité — Caissière Bar/Resto",
-    closedByRole: "CAISSIERE_BAR_RESTO",
-    shiftDate: "2026-11-03",
-    totalCashIn: 74000,
-    totalMobileMoneyIn: 22000,
-    totalDayTillExpenses: 9000,
-    expectedCash: 65000,
-    actualCashHanded: 65000,
-    discrepancy: 0,
-    status: "VALIDE_PROPRIETAIRE",
-    notes: "Caisse exacte remise à M. Koffi.",
-    auditedBy: "usr-admin-01",
-    createdAt: yesterday,
-  },
-];
+export const INITIAL_CLOSURES: CashClosure[] = [];
 
 // =============================================================================
 // 4. STORAGE HYBRIDE INDEXEDDB + LOCALSTORAGE FALLBACK POUR ZUSTAND PERSIST
@@ -1661,6 +1205,7 @@ interface RhrStoreState {
     payload: Record<string, unknown>
   ) => void;
   flushSyncQueue: () => Promise<number>;
+  pullRemoteData: () => Promise<boolean>;
   simulateOfflineActionDemo: () => void;
   resetDemoData: () => void;
   clearAllDemoCounters: () => void;
@@ -2514,6 +2059,100 @@ export const useRhrStore = create<RhrStoreState>()(
         } catch {
           set({ isSyncing: false });
           return 0;
+        }
+      },
+
+      pullRemoteData: async () => {
+        if (typeof window === "undefined") return false;
+        try {
+          const res = await fetch("/api/db-sync?full=true", { cache: "no-store" });
+          if (!res.ok) return false;
+          const json = await res.json();
+          if (!json.connected || !json.data) return false;
+
+          const d = json.data;
+          set((prev) => {
+            const remoteRooms: Room[] = Array.isArray(d.rooms) && d.rooms.length > 0
+              ? d.rooms.map((r: any) => ({
+                  id: r.id,
+                  roomNumber: r.room_number,
+                  name: r.name,
+                  category: r.category,
+                  nightPrice: Number(r.night_price),
+                  passagePrice: Number(r.passage_price),
+                  allowPassage3h: Boolean(r.allow_passage_3h),
+                  status: r.status,
+                  amenities: r.amenities || [],
+                  currentStayId: r.current_stay_id || undefined,
+                  updatedBy: r.updated_by,
+                  updatedAt: r.updated_at,
+                }))
+              : prev.rooms;
+
+            const remoteWaitresses: Waitress[] = Array.isArray(d.waitresses) && d.waitresses.length > 0
+              ? d.waitresses.map((w: any) => ({
+                  id: w.id,
+                  name: w.name,
+                  phone: w.phone || "",
+                  isActive: Boolean(w.is_active),
+                  totalSalesAmount: Number(w.total_sales_amount || 0),
+                  ordersCount: Number(w.orders_count || 0),
+                }))
+              : prev.waitresses;
+
+            const remoteTransactions: Transaction[] = Array.isArray(d.transactions)
+              ? d.transactions.map((t: any) => ({
+                  id: t.id,
+                  reference: t.reference,
+                  type: t.type,
+                  pole: t.pole,
+                  vault: t.vault,
+                  paymentMethod: t.payment_method,
+                  expenseFundSource: t.expense_fund_source,
+                  amount: Number(t.amount),
+                  grossAmount: t.gross_amount ? Number(t.gross_amount) : undefined,
+                  discountAmount: t.discount_amount ? Number(t.discount_amount) : undefined,
+                  dailyReportRow: t.daily_report_row || undefined,
+                  observation: t.observation || undefined,
+                  description: t.description,
+                  receiptPhotoUrl: t.receipt_photo_url,
+                  relatedEntityId: t.related_entity_id,
+                  createdBy: t.created_by,
+                  createdByName: t.created_by_name || "Système RHR",
+                  createdAt: t.created_at,
+                }))
+              : prev.transactions;
+
+            const remotePosOrders: PosOrder[] = Array.isArray(d.posOrders)
+              ? d.posOrders.map((o: any) => ({
+                  id: o.id,
+                  orderNumber: o.order_number,
+                  source: o.source,
+                  tableOrRoomLabel: o.table_or_room_label,
+                  waitressId: o.waitress_id || "",
+                  waitressName: o.waitress_name,
+                  items: Array.isArray(o.items) ? o.items : [],
+                  totalAmount: Number(o.total_amount),
+                  paymentMode: o.payment_mode,
+                  transferredToRoomNumber: o.transferred_to_room_number,
+                  transferredToStayId: o.transferred_to_stay_id,
+                  status: o.status,
+                  createdBy: o.created_by,
+                  createdAt: o.created_at,
+                }))
+              : prev.posOrders;
+
+            return {
+              rooms: remoteRooms,
+              waitresses: remoteWaitresses,
+              transactions: remoteTransactions,
+              posOrders: remotePosOrders,
+              lastSyncedAt: new Date().toISOString(),
+            };
+          });
+          return true;
+        } catch {
+          return false;
         }
       },
 
@@ -4822,7 +4461,7 @@ export const useRhrStore = create<RhrStoreState>()(
       },
     }),
     {
-      name: "rhr-mbatto-erp-storage-v2.7",
+      name: "rhr-mbatto-erp-storage-v3.0",
       storage: createJSONStorage(() => hybridOfflineStorage),
       partialize: (state) => ({
         currentUser: state.currentUser,
